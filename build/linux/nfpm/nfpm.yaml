@@ -1,0 +1,50 @@
+# Feel free to remove those if you don't want/need to use them.
+# Make sure to check the documentation at https://nfpm.goreleaser.com
+#
+# The lines below are called `modelines`. See `:help modeline`
+
+name: "market-coin-farmer"
+arch: ${GOARCH}
+platform: "linux"
+version: "v1.0.0"
+section: "default"
+priority: "extra"
+maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
+description: "Сбор монет на market.yandex.ru"
+vendor: "xob0t"
+homepage: "https://wails.io"
+license: "MIT"
+release: "1"
+
+contents:
+  - src: "./bin/market-coin-farmer"
+    dst: "/usr/local/bin/market-coin-farmer"
+  - src: "./build/appicon.png"
+    dst: "/usr/share/icons/hicolor/128x128/apps/market-coin-farmer.png"
+  - src: "./build/linux/market-coin-farmer.desktop"
+    dst: "/usr/share/applications/market-coin-farmer.desktop"
+
+depends:
+  - gtk3
+  - libwebkit2gtk
+
+# replaces:
+#   - foobar
+# provides:
+#   - bar
+# depends:
+#   - gtk3
+#   - libwebkit2gtk
+# recommends:
+#   - whatever
+# suggests:
+#   - something-else
+# conflicts:
+#   - not-foo
+#   - not-bar
+# changelog: "changelog.yaml"
+# scripts:
+#   preinstall: ./build/linux/nfpm/scripts/preinstall.sh
+#   postinstall: ./build/linux/nfpm/scripts/postinstall.sh
+#   preremove: ./build/linux/nfpm/scripts/preremove.sh
+#   postremove: ./build/linux/nfpm/scripts/postremove.sh

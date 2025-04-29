@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "v1.0.0"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "v1.0.0",
+			"CompanyName": "xob0t",
+			"FileDescription": "Сбор монет на market.yandex.ru",
+			"LegalCopyright": "© now, xob0t",
+			"ProductName": "Market Coin Farmer",
+			"Comments": ""
+		}
+	}
+}

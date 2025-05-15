@@ -1,0 +1,194 @@
+name: Build Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      os:
+        description: "OS to build (macos, windows, linux, all)"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - macos
+          - windows
+          - linux
+          - all
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.os == 'macos' || inputs.os == 'all')) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Wails3
+        run: go install -v github.com/wailsapp/wails/v3/cmd/wails3@latest
+
+      - name: Build macOS App
+        run: |
+          mkdir -p release
+          wails3 doctor
+
+          # Update build assets
+          wails3 task common:update:build-assets
+
+          # Build the app package
+          wails3 task darwin:package:universal
+
+          # Create zip file of the .app bundle
+          cd bin
+          zip -r ../release/market-coin-farmer-macos-universal.zip market-coin-farmer.app
+          cd ..
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: release/market-coin-farmer-macos-universal.zip
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.os == 'windows' || inputs.os == 'all')) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          refreshenv
+          Write-Host "NSIS version: $(makensis -VERSION)"
+
+      - name: Install Wails3
+        shell: cmd
+        run: go install -v github.com/wailsapp/wails/v3/cmd/wails3@latest
+
+      - name: Build Windows App
+        shell: pwsh
+        run: |
+          mkdir -p release
+          wails3 doctor
+
+          # Update build assets
+          wails3 task common:update:build-assets
+
+          # Build the application
+          wails3 task production
+          Move-Item -Path "bin\market-coin-farmer.exe" -Destination "release\market-coin-farmer-x64.exe"
+          Remove-Item -Path "bin\market-coin-farmer.exe" -ErrorAction SilentlyContinue
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: release/market-coin-farmer-x64.exe
+
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.os == 'linux' || inputs.os == 'all')) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libwebkit2gtk-4.1-dev gcc libgtk-3-dev pkg-config
+
+      - name: Install Wails3
+        run: go install -v github.com/wailsapp/wails/v3/cmd/wails3@latest
+
+      - name: Build Linux App
+        run: |
+          mkdir -p release
+          wails3 doctor
+
+          # Update build assets
+          wails3 task common:update:build-assets
+
+          # Build the application
+          wails3 task package
+
+          # Generate deb package
+          wails3 tool package -name market-coin-farmer -format deb -config ./build/linux/nfpm/nfpm.yaml -out ./release
+
+          # Generate AppImage
+          wails3 package
+          mv bin/market-coin-farmer-x86_64.AppImage "release/market-coin-farmer_amd64.AppImage"
+          rm -f bin/market-coin-farmer-x86_64.AppImage
+
+          # Rename .deb file if needed
+          if [ -f "release/market-coin-farmer.deb" ]; then
+            mv "release/market-coin-farmer.deb" "release/market-coin-farmer_amd64.deb"
+          fi
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            release/market-coin-farmer_amd64.deb
+            release/market-coin-farmer_amd64.AppImage
+
+  create-release:
+    name: Create Release
+    needs: [build-macos, build-windows, build-linux]
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/macos/market-coin-farmer-macos-universal.zip
+            release/windows/market-coin-farmer-x64.exe
+            release/linux/market-coin-farmer_amd64.deb
+            release/linux/market-coin-farmer_amd64.AppImage
+          tag_name: ${{ github.ref }}
+          draft: true

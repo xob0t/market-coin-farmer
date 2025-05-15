@@ -26,8 +26,8 @@ onMounted(async () => {
 <template>
   <div>
     <WindowTitlebar class="absolute top-0 left-0 w-full bg-black">
-      <span class="ml-4 font-semibold">Market Coin Farmer <span v-if="version" class="text-muted-foreground">{{ version
-          }}</span></span>
+      <span class="ml-4 font-semibold">Market Coin Farmer <span v-if="version" class="text-muted-foreground">v{{ version
+      }}</span></span>
     </WindowTitlebar>
   </div>
 

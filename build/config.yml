@@ -11,7 +11,7 @@ info:
   description: "Сбор монет на market.yandex.ru" # The application description
   copyright: "© now, xob0t" # Copyright text
   comments: "" # Comments
-  version: "1.0.0" # The application version
+  version: "1.1.0" # The application version
 
 # Dev mode configuration
 dev_mode:

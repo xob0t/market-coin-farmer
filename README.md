@@ -2,9 +2,7 @@
 
 ![demo](readme_assets/app_screenshot.jpg)
 
-## Скачать
-
-[Windows](https://github.com/xob0t/market-coin-farmer/releases/latest/download/market-coin-farmer.exe) 8.1+
+## [Скачать](https://github.com/xob0t/market-coin-farmer/releases/latest)
 
 ## Функции
 

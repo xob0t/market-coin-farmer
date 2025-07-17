@@ -10,4 +10,7 @@ export {
     YaApiService
 };
 
-export * from "./models.js";
+export {
+    Account,
+    GlobalSettings
+} from "./models.js";

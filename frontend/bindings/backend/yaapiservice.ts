@@ -8,7 +8,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {Call as $Call, Create as $Create} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -17,31 +17,27 @@ import * as $models from "./models.js";
 /**
  * ClaimDailyCoins claims available coins from the service
  */
-export function ClaimDailyCoins(account: $models.Account | null): Promise<string> & { cancel(): void } {
-    let $resultPromise = $Call.ByID(935410992, account) as any;
-    return $resultPromise;
+export function ClaimDailyCoins(account: $models.Account | null): $CancellablePromise<string> {
+    return $Call.ByID(935410992, account);
 }
 
 /**
  * ClaimDailyGameReward claims game reward
  */
-export function ClaimDailyGameReward(account: $models.Account | null): Promise<string> & { cancel(): void } {
-    let $resultPromise = $Call.ByID(321296863, account) as any;
-    return $resultPromise;
+export function ClaimDailyGameReward(account: $models.Account | null): $CancellablePromise<string> {
+    return $Call.ByID(321296863, account);
 }
 
 /**
  * GetRewardsJson retrieves rewards information for an account
  */
-export function GetRewardsJson(account: $models.Account | null): Promise<[string, string, string]> & { cancel(): void } {
-    let $resultPromise = $Call.ByID(1882876837, account) as any;
-    return $resultPromise;
+export function GetRewardsJson(account: $models.Account | null): $CancellablePromise<[string, string, string]> {
+    return $Call.ByID(1882876837, account);
 }
 
 /**
  * Roll executes a spin of the prize wheel
  */
-export function Roll(account: $models.Account | null): Promise<string> & { cancel(): void } {
-    let $resultPromise = $Call.ByID(3671417624, account) as any;
-    return $resultPromise;
+export function Roll(account: $models.Account | null): $CancellablePromise<string> {
+    return $Call.ByID(3671417624, account);
 }

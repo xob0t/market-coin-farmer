@@ -3,9 +3,8 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {Call as $Call, Create as $Create} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
-export function GetVersion(): Promise<string> & { cancel(): void } {
-    let $resultPromise = $Call.ByID(364529421) as any;
-    return $resultPromise;
+export function GetVersion(): $CancellablePromise<string> {
+    return $Call.ByID(364529421);
 }

@@ -3,29 +3,24 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {Call as $Call, Create as $Create} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
-export function AddAccountToConfig(account: $models.Account): Promise<void> & { cancel(): void } {
-    let $resultPromise = $Call.ByID(1520924950, account) as any;
-    return $resultPromise;
+export function AddAccountToConfig(account: $models.Account): $CancellablePromise<void> {
+    return $Call.ByID(1520924950, account);
 }
 
-export function GetConfig($0: {}): Promise<$models.GlobalSettings> & { cancel(): void } {
-    let $resultPromise = $Call.ByID(2320765359, $0) as any;
-    let $typingPromise = $resultPromise.then(($result: any) => {
+export function GetConfig($0: {}): $CancellablePromise<$models.GlobalSettings> {
+    return $Call.ByID(2320765359, $0).then(($result: any) => {
         return $$createType0($result);
-    }) as any;
-    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
-    return $typingPromise;
+    });
 }
 
-export function RemoveAccountFromConfig(target_account: $models.Account): Promise<void> & { cancel(): void } {
-    let $resultPromise = $Call.ByID(4242096952, target_account) as any;
-    return $resultPromise;
+export function RemoveAccountFromConfig(target_account: $models.Account): $CancellablePromise<void> {
+    return $Call.ByID(4242096952, target_account);
 }
 
 // Private type creation functions

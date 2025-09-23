@@ -10,7 +10,7 @@ require (
 	github.com/knadh/koanf/providers/structs v1.0.0
 	github.com/knadh/koanf/v2 v2.2.0
 	github.com/mengzhuo/cookiestxt v1.0.4
-	github.com/wailsapp/wails/v3 v3.0.0-alpha.12
+	github.com/wailsapp/wails/v3 v3.0.0-alpha.28
 )
 
 require (

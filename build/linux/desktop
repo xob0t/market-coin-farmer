@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Market Coin Farmer
+Comment=Сбор монет на market.yandex.ru
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/market-coin-farmer %u
+Terminal=false
+Type=Application
+Icon=market-coin-farmer
+Categories=Utility;
+StartupWMClass=market-coin-farmer
+
+ 

@@ -77,7 +77,7 @@ const nextCoinRewardTime = computed(() => {
     const accountData = accountsData[account.cookies]
     if (accountData?.signInInfo?.rewardAvailable) {
       claimDailyCoins(account)
-      claimDailyGameReward(account)
+      claimDailyGameRewards(account)
       getRewards(account)
     }
 
@@ -93,7 +93,7 @@ const nextCoinRewardTime = computed(() => {
 
     if (diff <= 0) {
       claimDailyCoins(account)
-      claimDailyGameReward(account)
+      claimDailyGameRewards(account)
       getRewards(account)
     }
   }
@@ -174,7 +174,7 @@ const addAccount = async (): Promise<void> => {
     const newAccount = config.value?.accounts?.find((a: Account) => a.cookies === btoa(account.cookies))
     if (newAccount) {
       console.log(newAccount)
-      await claimDailyGameReward(newAccount)
+      await claimDailyGameRewards(newAccount)
       if (newAccount?.signInInfo?.rewardAvailable) {
         await claimDailyCoins(newAccount)
       }
@@ -235,7 +235,7 @@ const claimAndUpdateAccountInfo = async (): Promise<void> => {
     const promises: Promise<void>[] = []
     for (const account of config.value.accounts) {
       promises.push(claimDailyCoins(account))
-      promises.push(claimDailyGameReward(account))
+      promises.push(claimDailyGameRewards(account))
       promises.push(getRewards(account))
     }
     await Promise.all(promises)
@@ -269,20 +269,37 @@ const claimDailyCoins = async (account: Account): Promise<void> => {
   }
 }
 
-const claimDailyGameReward = async (account: Account): Promise<void> => {
+const claimDailyGameRewards = async (account: Account): Promise<void> => {
   loadingAccounts[account.cookies] = true
   try {
-    const gameRewardStatus = await YaApiService.ClaimDailyGameReward(account)
+    const gameRewardStatus = await YaApiService.ClaimGoshanGameReward(account)
     const parsedData = JSON.parse(gameRewardStatus)
     if (parsedData.results?.[0]?.data?.result) {
       toast.success(account.name || accountsData[account.cookies]?.login || '', {
-        description: "Игровая награда успешно получена",
+        description: "Игровая награда Goshan успешно получена",
       })
     }
   } catch (err) {
     console.error(err)
     toast.error(account.name || accountsData[account.cookies]?.login || "Аккаунт", {
-      description: "Ошибка получения награды " + (err instanceof Error ? err.message : String(err)),
+      description: "Ошибка получения награды Goshan " + (err instanceof Error ? err.message : String(err)),
+    })
+  } finally {
+    loadingAccounts[account.cookies] = false
+  }
+  loadingAccounts[account.cookies] = true
+  try {
+    const gameRewardStatus = await YaApiService.ClaimMarketRushGameReward(account)
+    const parsedData = JSON.parse(gameRewardStatus)
+    if (parsedData.results?.[0]?.data?.result) {
+      toast.success(account.name || accountsData[account.cookies]?.login || '', {
+        description: "Игровая награда MarketRush успешно получена",
+      })
+    }
+  } catch (err) {
+    console.error(err)
+    toast.error(account.name || accountsData[account.cookies]?.login || "Аккаунт", {
+      description: "Ошибка получения награды MarketRush " + (err instanceof Error ? err.message : String(err)),
     })
   } finally {
     loadingAccounts[account.cookies] = false

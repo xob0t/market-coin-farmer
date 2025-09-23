@@ -239,8 +239,7 @@ func (rs *YaApiService) ClaimDailyCoins(account *Account) (string, error) {
 	return string(body), nil
 }
 
-// ClaimDailyGameReward claims game reward
-func (rs *YaApiService) ClaimDailyGameReward(account *Account) (string, error) {
+func (rs *YaApiService) ClaimGoshanGameReward(account *Account) (string, error) {
 	if err := rs.ensureAuth(account); err != nil {
 		return "", fmt.Errorf("failed to authenticate: %w", err)
 	}
@@ -250,10 +249,49 @@ func (rs *YaApiService) ClaimDailyGameReward(account *Account) (string, error) {
 		return "", fmt.Errorf("failed to create client: %w", err)
 	}
 
-	today := time.Now().Format("2006-01-02")
-	var jsonStr = fmt.Sprintf(`{"params":[{"token":"game_reward-%s-market"}],"path":"/kolesoprizov?track=menu"}`, today)
-	var data = strings.NewReader(jsonStr)
-	req, err := rs.createRequest(http.MethodPost, "https://market.yandex.ru/api/resolve/?r=src/resolvers/cashbackLevels/fortune/resolveFetchFortuneGameReward:resolveFortuneGameReward", data)
+	var data = strings.NewReader(`{"params":[{"gameId":"goshan","levels":["bronze","silver","gold"]}],"path":"/kolesoprizov?track=menu"}`)
+	req, err := rs.createRequest(http.MethodPost, "https://market.yandex.ru/api/resolve/?r=src/resolvers/cashbackLevels/fortune/resolveFetchFortuneGameRewardBulk:resolveFortuneGameRewardBulk", data)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("sk", account.TokenSK)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if len(body) == 0 {
+		return "", fmt.Errorf("empty response")
+	}
+
+	return string(body), nil
+}
+
+func (rs *YaApiService) ClaimMarketRushGameReward(account *Account) (string, error) {
+	if err := rs.ensureAuth(account); err != nil {
+		return "", fmt.Errorf("failed to authenticate: %w", err)
+	}
+
+	client, err := rs.getClient(account)
+	if err != nil {
+		return "", fmt.Errorf("failed to create client: %w", err)
+	}
+
+	var data = strings.NewReader(`{"params":[{"gameId":"market_rush"}],"path":"/kolesoprizov?track=menu"}`)
+	req, err := rs.createRequest(http.MethodPost, "https://market.yandex.ru/api/resolve/?r=src/resolvers/cashbackLevels/fortune/resolveFetchFortuneGameRewardBulk:resolveFortuneGameRewardBulk", data)
 
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)

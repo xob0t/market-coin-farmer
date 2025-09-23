@@ -21,11 +21,12 @@ export function ClaimDailyCoins(account: $models.Account | null): $CancellablePr
     return $Call.ByID(935410992, account);
 }
 
-/**
- * ClaimDailyGameReward claims game reward
- */
-export function ClaimDailyGameReward(account: $models.Account | null): $CancellablePromise<string> {
-    return $Call.ByID(321296863, account);
+export function ClaimGoshanGameReward(account: $models.Account | null): $CancellablePromise<string> {
+    return $Call.ByID(2864555342, account);
+}
+
+export function ClaimMarketRushGameReward(account: $models.Account | null): $CancellablePromise<string> {
+    return $Call.ByID(3708706966, account);
 }
 
 /**

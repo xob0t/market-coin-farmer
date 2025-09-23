@@ -52,11 +52,7 @@ func main() {
 		Frameless: true,
 		Width:     800,
 		Height:    900,
-		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 0,
-			Backdrop:                application.MacBackdropTranslucent,
-			TitleBar:                application.MacTitleBarHiddenInset,
-		},
+
 		BackgroundType: application.BackgroundTypeTranslucent,
 		URL:            "/",
 	})

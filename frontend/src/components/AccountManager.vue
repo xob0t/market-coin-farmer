@@ -44,6 +44,13 @@ const refreshingAll = ref(false)
 const hideJunk = ref(false)
 const spendingAllCoins = ref(false)
 
+// Per-account cancellation for refresh/roll. inFlightCalls holds the live
+// CancellablePromises so cancel() aborts the backend HTTP request (the service
+// methods take a wails-injected context.Context); cancelledAccounts stops the
+// frontend from chaining further steps and suppresses the resulting errors.
+const inFlightCalls: Record<string, Set<{ cancel: () => void }>> = {}
+const cancelledAccounts = reactive<Record<string, boolean>>({})
+
 const importDialogOpen = ref(false)
 const browserLoginAvailable = ref(false)
 const browserLoginActive = ref(false)
@@ -130,6 +137,34 @@ const reportAccountError = (account: Account, description: string, err: unknown)
   toast.error(account.name || accountsData[account.cookies]?.login || 'Аккаунт', {
     description: `${description} ${message}`,
   })
+}
+
+// trackCall registers a cancellable backend call for an account so it can be
+// aborted, and unregisters it when it settles.
+const trackCall = async <T,>(cookies: string, call: Promise<T> & { cancel: () => void }): Promise<T> => {
+  const set = (inFlightCalls[cookies] ??= new Set())
+  set.add(call)
+  try {
+    return await call
+  } finally {
+    set.delete(call)
+  }
+}
+
+const isCancelled = (cookies: string): boolean => cancelledAccounts[cookies] === true
+
+const beginRefresh = (cookies: string): void => {
+  cancelledAccounts[cookies] = false
+}
+
+const cancelAccountRefresh = (account: Account): void => {
+  cancelledAccounts[account.cookies] = true
+  const set = inFlightCalls[account.cookies]
+  if (set) {
+    for (const call of set) call.cancel()
+    set.clear()
+  }
+  loadingAccounts[account.cookies] = false
 }
 
 const decodeBase64 = (str: string): string => {
@@ -287,7 +322,7 @@ const removeAccount = async (account: Account): Promise<void> => {
 const getRewards = async (account: Account): Promise<void> => {
   loadingAccounts[account.cookies] = true
   try {
-    const [rewardsJson, login, coinBalance] = await YaApiService.GetRewardsJson(account)
+    const [rewardsJson, login, coinBalance] = await trackCall(account.cookies, YaApiService.GetRewardsJson(account))
     const parsedData = JSON.parse(rewardsJson)
     const rewardsResult = parsedData?.result ?? parsedData?.results?.[0]?.data?.result
     // Create a new object reference to force reactivity
@@ -299,6 +334,7 @@ const getRewards = async (account: Account): Promise<void> => {
       blocked: false,
     }
   } catch (err) {
+    if (isCancelled(account.cookies)) return
     console.error(err)
     reportAccountError(account, 'Ошибка получения наград', err)
   } finally {
@@ -313,8 +349,11 @@ const claimAndUpdateAccountInfo = async (): Promise<void> => {
 
     await Promise.all(
       config.value.accounts.map(async (account: Account) => {
+        beginRefresh(account.cookies)
         await claimDailyCoins(account)
+        if (isCancelled(account.cookies)) return
         await claimDailyGameRewards(account)
+        if (isCancelled(account.cookies)) return
         await getRewards(account)
       }),
     )
@@ -326,7 +365,7 @@ const claimAndUpdateAccountInfo = async (): Promise<void> => {
 const claimDailyCoins = async (account: Account): Promise<void> => {
   loadingAccounts[account.cookies] = true
   try {
-    const signInInfo = await YaApiService.ClaimDailyCoins(account)
+    const signInInfo = await trackCall(account.cookies, YaApiService.ClaimDailyCoins(account))
     const parsedData = JSON.parse(signInInfo)
     const dailyResult = parsedData?.result ?? parsedData?.results?.[0]?.data?.result
     // Create a new object reference
@@ -341,6 +380,7 @@ const claimDailyCoins = async (account: Account): Promise<void> => {
       })
     }
   } catch (err) {
+    if (isCancelled(account.cookies)) return
     console.error(err)
     reportAccountError(account, 'Ошибка получения награды', err)
   } finally {
@@ -351,7 +391,7 @@ const claimDailyCoins = async (account: Account): Promise<void> => {
 const claimDailyGameRewards = async (account: Account): Promise<void> => {
   loadingAccounts[account.cookies] = true
   try {
-    const gameRewardStatus = await YaApiService.ClaimGameRewards(account)
+    const gameRewardStatus = await trackCall(account.cookies, YaApiService.ClaimGameRewards(account))
     const summary = JSON.parse(gameRewardStatus)
     const rewardCount = (summary.claimedLevels ?? 0) + (summary.completedChallenges ?? 0)
     if (rewardCount > 0) {
@@ -370,6 +410,7 @@ const claimDailyGameRewards = async (account: Account): Promise<void> => {
       })
     }
   } catch (err) {
+    if (isCancelled(account.cookies)) return
     console.error(err)
     reportAccountError(account, 'Ошибка получения игровых наград', err)
   } finally {
@@ -380,7 +421,7 @@ const claimDailyGameRewards = async (account: Account): Promise<void> => {
 const roll = async (account: Account): Promise<void> => {
   loadingAccounts[account.cookies] = true
   try {
-    const rollStatus = await YaApiService.Roll(account)
+    const rollStatus = await trackCall(account.cookies, YaApiService.Roll(account))
     const parsedData = JSON.parse(rollStatus)
     const spinResult = parsedData?.result?.spinResponse ?? parsedData?.results?.[0]?.data?.result
     const status = spinResult?.type
@@ -401,11 +442,18 @@ const roll = async (account: Account): Promise<void> => {
       description: 'Ошибка получения награды. Неизвестный статус ' + status,
     })
   } catch (err) {
+    if (isCancelled(account.cookies)) return
     console.error(err)
     reportAccountError(account, 'Ошибка получения награды', err)
   } finally {
     loadingAccounts[account.cookies] = false
   }
+}
+
+// Single roll from a card button — reset any prior cancel state first.
+const rollOne = async (account: Account): Promise<void> => {
+  beginRefresh(account.cookies)
+  await roll(account)
 }
 
 const spendAllCoins = async (): Promise<void> => {
@@ -415,12 +463,16 @@ const spendAllCoins = async (): Promise<void> => {
   try {
     await Promise.all(
       config.value.accounts.map(async (account) => {
-        while (canRoll(account.cookies)) {
+        beginRefresh(account.cookies)
+        while (canRoll(account.cookies) && !isCancelled(account.cookies)) {
           await roll(account)
         }
       }),
     )
-    toast.success('Все монеты потрачены на всех аккаунтах')
+    const anyCancelled = config.value.accounts.some((account: Account) => isCancelled(account.cookies))
+    if (!anyCancelled) {
+      toast.success('Все монеты потрачены на всех аккаунтах')
+    }
   } catch (err) {
     console.error(err)
     toast.error('Ошибка при трате монет', {
@@ -618,8 +670,15 @@ const getAccountDisplayName = (account: Account): string => {
         class="relative mb-2 overflow-hidden rounded-lg border bg-card p-4 transition-colors"
         :class="accountsData[account.cookies]?.blocked ? 'border-destructive/50' : 'border-border/60 hover:border-border'"
       >
-        <div v-if="loadingAccounts[account.cookies] || spendingAllCoins" class="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
+        <div
+          v-if="(loadingAccounts[account.cookies] || spendingAllCoins) && !cancelledAccounts[account.cookies]"
+          class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/60 backdrop-blur-[2px]"
+        >
           <RefreshCw class="size-6 animate-spin text-primary" />
+          <Button variant="outline" size="sm" class="cursor-pointer" title="Отменить" @click="cancelAccountRefresh(account)">
+            <X class="size-3.5" />
+            Отменить
+          </Button>
         </div>
 
         <div class="flex justify-between items-start gap-3">
@@ -674,7 +733,7 @@ const getAccountDisplayName = (account: Account): string => {
                   :disabled="!canRoll(account.cookies) || loadingAccounts[account.cookies] || spendingAllCoins"
                   class="cursor-pointer p-0 size-8 text-primary hover:text-primary"
                   title="Вращать колесо (стоимость 10 монет)"
-                  @click="roll(account)"
+                  @click="rollOne(account)"
                 >
                   <Dices class="size-4" />
                 </Button>

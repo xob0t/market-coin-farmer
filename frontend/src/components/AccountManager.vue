@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Coin from '@/components/ui/svg/Coin.vue'
-import Wheel from '@/components/ui/svg/Wheel.vue'
 import { toast } from 'vue-sonner'
+import { RefreshCw, Pencil, Trash2, Frown, Dices } from 'lucide-vue-next'
 import { Account } from "../../bindings/backend";
 import { Clipboard } from "@wailsio/runtime";
 import { onKeyStroke } from '@vueuse/core'
@@ -464,72 +464,75 @@ const getAccountDisplayName = (account: Account): string => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
+  <div class="rounded-xl border border-border/60 bg-card/50 p-3">
     <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
       <Input v-model="name" placeholder="Имя (опционально)" title="Имя аккаунта" />
-      <Textarea v-model="cookies" placeholder="*Cookies (Netscape)" required class="md:col-span-2 resize-none"
-        style="height: 36px; min-height: 36px; padding-top: 10px; line-height: 1;" title="Cookies аккаунта" />
+      <Textarea v-model="cookies" placeholder="Cookies (Netscape) *" required
+        class="md:col-span-2 h-9 min-h-9 resize-none py-2 leading-tight" title="Cookies аккаунта" />
       <Input v-model="proxy" placeholder="proxytype://username:password@server:port" class="md:col-span-2"
         title="Прокси для аккаунта" />
       <Button @click="addAccount" class="cursor-pointer h-9" title="Добавить новый аккаунт">Добавить</Button>
     </div>
   </div>
 
-  <div v-if="config?.accounts.length > 0" class="mt-4 space-y-2">
-    <div class="grid grid-cols-[auto_auto_auto_1fr] items-center gap-2 select-none">
-      <v-icon @click="claimAndUpdateAccountInfo" name="hi-refresh"
-        class="size-5 cursor-pointer stroke-primary spin-reverse-hover"
-        title="Обновить все аккаунты и получить монетки" />
+  <div v-if="config?.accounts.length > 0" class="mt-4 space-y-3">
+    <div class="flex items-center gap-3 select-none">
+      <Button @click="claimAndUpdateAccountInfo" variant="ghost" size="icon"
+        class="cursor-pointer size-9 shrink-0 text-muted-foreground hover:text-foreground"
+        title="Обновить все аккаунты и получить монетки">
+        <RefreshCw class="size-4" :class="{ 'animate-spin': refreshingAll }" />
+      </Button>
       <Button @click="spendAllCoins" :disabled="spendingAllCoins" class="cursor-pointer" title="Потратить все монеты"
         variant="outline">
         Потратить все монеты
-        <v-icon v-if="spendingAllCoins" name="hi-refresh" class="size-4 ml-1 animate-spin" />
+        <RefreshCw v-if="spendingAllCoins" class="size-4 ml-1 animate-spin" />
       </Button>
-      <Label for="hideJunk" class="size-full ph-2 cursor-pointer">Скрыть скидки
+      <Label for="hideJunk" class="cursor-pointer gap-2 text-muted-foreground">
+        Скрыть скидки
         <Switch id="hideJunk" v-model="hideJunk" />
       </Label>
-      <p v-if="config.accounts.length > 0" class="justify-self-end">
-        <span class="text-gray-500">Монетки за вход:</span>
-        {{ nextCoinRewardTime[config.accounts[0].cookies] || 'Н/Д' }}
+      <p class="ml-auto text-sm">
+        <span class="text-muted-foreground">Монетки за вход:</span>
+        <span class="ml-1.5 font-medium tabular-nums">{{ nextCoinRewardTime[config.accounts[0].cookies] || 'Н/Д'
+        }}</span>
       </p>
     </div>
 
-    <ScrollArea>
-      <div v-for="account in config.accounts" :key="account.cookies" class="p-3 border rounded mb-2 relative">
+    <ScrollArea class="-mr-3 pr-3">
+      <div v-for="account in config.accounts" :key="account.cookies"
+        class="relative mb-2 overflow-hidden rounded-lg border border-border/60 bg-card p-4 transition-colors hover:border-border">
         <div v-if="loadingAccounts[account.cookies] || spendingAllCoins"
-          class="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
-          <div class="spin-reverse">
-            <v-icon name="hi-refresh" class="size-6 stroke-primary" />
-          </div>
+          class="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
+          <RefreshCw class="size-6 animate-spin text-primary" />
         </div>
 
-        <div class="flex justify-between items-start gap-2">
-          <div v-if="editingAccountCookies !== account.cookies" class="flex-grow space-y-1">
-            <div class="flex items-center gap-2">
-              <p class="font-medium">
+        <div class="flex justify-between items-start gap-3">
+          <div v-if="editingAccountCookies !== account.cookies" class="flex-grow min-w-0 space-y-2">
+            <div class="flex items-center gap-2.5">
+              <p class="font-medium truncate">
                 {{ getAccountDisplayName(account) }}
               </p>
+              <span
+                class="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium tabular-nums text-primary"
+                title="Баланс монет">
+                {{ accountsData[account.cookies]?.coinBalance || 'Н/Д' }}
+                <Coin class="inline" />
+              </span>
             </div>
-            <div v-if="accountsData[account.cookies]?.signInInfo?.plan" class="mt-1">
-              <div class="flex gap-1 mt-1">
-                <div v-for="(day, dayIndex) in accountsData[account.cookies].signInInfo.plan"
-                  :title="`День ${dayIndex + 1}: ${day.reward.amount} монет`" :key="dayIndex"
-                  class="w-3 h-3 rounded-full flex items-center justify-center text-xs" :class="{
-                    'bg-primary text-white': day.received,
-                    'bg-gray-200': !day.received
-                  }">
-                </div>
+            <div v-if="accountsData[account.cookies]?.signInInfo?.plan" class="flex gap-1.5">
+              <div v-for="(day, dayIndex) in accountsData[account.cookies].signInInfo.plan"
+                :title="`День ${dayIndex + 1}: ${day.reward.amount} монет`" :key="dayIndex"
+                class="size-2.5 rounded-full transition-colors" :class="{
+                  'bg-primary': day.received,
+                  'bg-muted-foreground/20': !day.received
+                }">
               </div>
             </div>
 
-            <div class="flex flex-col gap-1 text-sm">
-              <p><span class="text-gray-500 select-none">Прокси: </span>{{ account.proxy || 'Нет' }}</p>
-              <p class="flex items-center gap-0.5"><span class="text-gray-500 flex select-none">Баланс:</span>
-                {{ accountsData[account.cookies]?.coinBalance || 'Н/Д' }}
-                <Coin class="inline ml-1" />
-              </p>
-            </div>
-
+            <p class="text-sm truncate">
+              <span class="text-muted-foreground select-none">Прокси: </span>
+              <span :class="account.proxy ? '' : 'text-muted-foreground/60'">{{ account.proxy || 'Нет' }}</span>
+            </p>
           </div>
 
           <div v-else class="flex flex-col gap-2 w-full">
@@ -548,42 +551,47 @@ const getAccountDisplayName = (account: Account): string => {
           </div>
 
           <div class="flex gap-1 flex-col">
-            <div class="flex gap-1 flex-shrink-0 self-end">
+            <div class="flex gap-1.5 flex-shrink-0 self-end">
               <template v-if="editingAccountCookies !== account.cookies">
-                <Button @click="roll(account)"
+                <Button @click="roll(account)" variant="ghost"
                   :disabled="!canRoll(account.cookies) || loadingAccounts[account.cookies] || spendingAllCoins"
-                  class="cursor-pointer p-0 w-8 h-8" title="Вращать колесо (стоимость 10 монет)">
-                  <Wheel class="size-5 fill-black" />
+                  class="cursor-pointer p-0 size-8 text-primary hover:text-primary"
+                  title="Вращать колесо (стоимость 10 монет)">
+                  <Dices class="size-4" />
                 </Button>
-                <Button @click="startEditing(account)" variant="secondary" class="cursor-pointer w-8 h-8"
+                <Button @click="startEditing(account)" variant="ghost"
+                  class="cursor-pointer size-8 text-muted-foreground hover:text-foreground"
                   :disabled="loadingAccounts[account.cookies] || spendingAllCoins" title="Редактировать аккаунт">
-                  <v-icon name="md-modeeditoutline" class="size-5" />
+                  <Pencil class="size-4" />
                 </Button>
-                <Button @click="removeAccount(account)" variant="destructive" class="cursor-pointer w-8 h-8"
+                <Button @click="removeAccount(account)" variant="ghost"
+                  class="cursor-pointer size-8 text-muted-foreground hover:text-destructive"
                   :disabled="loadingAccounts[account.cookies] || spendingAllCoins" title="Удалить аккаунт">
-                  <v-icon name="bi-trash-fill" class="size-5" />
+                  <Trash2 class="size-4" />
                 </Button>
               </template>
 
             </div>
             <div v-if="filteredRewards(accountsData[account.cookies]?.rewards)?.length > 0" class="mt-2 self-end">
-              <div class="flex flex-wrap gap-1">
+              <div class="flex flex-wrap justify-end gap-1.5">
                 <HoverCard
                   v-for="(reward, rewardIndex) in sortedRewards(filteredRewards(accountsData[account.cookies].rewards))"
                   :key="rewardIndex">
                   <HoverCardTrigger>
-                    <div class="relative">
-                      <img v-if="reward.rewardImage || reward.reward_image" :src="reward.rewardImage || reward.reward_image" alt="Награда"
-                        class="w-15 h-15 object-contain cursor-pointer">
+                    <div
+                      class="rounded-md border border-transparent p-0.5 transition-colors hover:border-border hover:bg-accent/50">
+                      <img v-if="reward.rewardImage || reward.reward_image"
+                        :src="reward.rewardImage || reward.reward_image" alt="Награда"
+                        class="w-13 h-13 object-contain cursor-pointer">
                     </div>
                   </HoverCardTrigger>
                   <HoverCardContent class="w-64">
                     <h4 class="font-medium">{{ reward.title }}</h4>
                     <p v-if="reward.subtitle && reward.subtitle !== 'Больше не действует'"
-                      class="text-sm text-gray-600 mt-1">{{
+                      class="text-sm text-muted-foreground mt-1">{{
                         reward.subtitle }}</p>
                     <div v-if="reward.actions?.some(a => a.promocode)" class="mt-2">
-                      <p class="text-xs font-medium">Промокод:</p>
+                      <p class="text-xs font-medium text-muted-foreground">Промокод:</p>
                       <div class="flex flex-wrap gap-1 mt-1">
                         <Button v-for="(action, actionIndex) in reward.actions.filter(a => a.promocode)"
                           :key="actionIndex" @click="copyPromocode(action.promocode)" size="sm" variant="outline"
@@ -603,10 +611,11 @@ const getAccountDisplayName = (account: Account): string => {
     </ScrollArea>
   </div>
 
-  <div v-if="config?.accounts.length === 0" class="flex items-center justify-center w-full h-full flex-col color-red">
-    <v-icon name="co-sad" class="size-60 color-fix wrench" />
-    <p>
-      Аккаунты не найдены.
+  <div v-if="config?.accounts.length === 0"
+    class="flex h-[calc(100%-4rem)] w-full flex-col items-center justify-center gap-3 text-muted-foreground">
+    <Frown class="size-20 text-muted-foreground/30 wrench" stroke-width="1.5" />
+    <p class="text-sm">
+      Аккаунты не найдены
     </p>
   </div>
 </template>

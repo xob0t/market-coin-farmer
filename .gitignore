@@ -7,3 +7,4 @@ build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 config.yaml
 body.html
 wails_windows_amd64.syso
+*.exe

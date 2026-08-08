@@ -35,6 +35,11 @@ const (
 	promoLoyaltyAPI = marketOrigin + "/api/web/market.front.mfPromoLoyalty.MfPromoLoyalty/"
 )
 
+// errIPBlocked marks Yandex's 403 VPN/proxy block page. The ERR_IP_BLOCKED
+// prefix is matched by the frontend to show a per-account status instead of
+// a toast.
+var errIPBlocked = fmt.Errorf("ERR_IP_BLOCKED: Yandex rejected the request (403, VPN/proxy block)")
+
 var (
 	fortunePrizesURL = promoLoyaltyAPI + "resolveFortuneWheelPrizesScreenData"
 	fortuneMainURL   = promoLoyaltyAPI + "resolveFortuneWheelMainScreenData"
@@ -886,6 +891,9 @@ func (rs *YaApiService) getProfileInfo(account *Account) error {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusForbidden {
+		return errIPBlocked
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -938,6 +946,9 @@ func (rs *YaApiService) doJSON(account *Account, method, requestURL, target stri
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
 		return nil, fmt.Errorf("failed to read response: %w", readErr)
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, errIPBlocked
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)

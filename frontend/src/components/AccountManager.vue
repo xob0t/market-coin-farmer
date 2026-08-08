@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Coin from '@/components/ui/svg/Coin.vue'
 import { toast } from 'vue-sonner'
-import { RefreshCw, Pencil, Trash2, Frown, Dices } from 'lucide-vue-next'
+import { RefreshCw, Pencil, Trash2, Frown, Dices, ShieldAlert } from 'lucide-vue-next'
 import { Account } from "../../bindings/backend";
 import { Clipboard } from "@wailsio/runtime";
 import { onKeyStroke } from '@vueuse/core'
@@ -25,7 +25,8 @@ const accountsData = reactive<Record<string, {
   rewards: any[],
   signInInfo: any,
   login?: string,
-  coinBalance?: string
+  coinBalance?: string,
+  blocked?: boolean
 }>>({})
 const name = ref('')
 const proxy = ref('')
@@ -99,6 +100,22 @@ const nextCoinRewardTime = computed(() => {
   }
   return result
 })
+
+// A 403 VPN/proxy block is persistent account state, not a transient failure:
+// it goes on the account card instead of a toast.
+const reportAccountError = (account: Account, description: string, err: unknown): void => {
+  const message = err instanceof Error ? err.message : String(err)
+  if (message.includes('ERR_IP_BLOCKED')) {
+    accountsData[account.cookies] = {
+      ...accountsData[account.cookies],
+      blocked: true
+    }
+    return
+  }
+  toast.error(account.name || accountsData[account.cookies]?.login || "Аккаунт", {
+    description: `${description} ${message}`,
+  })
+}
 
 const decodeBase64 = (str: string): string => {
   try {
@@ -217,13 +234,12 @@ const getRewards = async (account: Account): Promise<void> => {
       ...accountsData[account.cookies],
       rewards: rewardsResult?.userRewards ?? rewardsResult?.user_rewards ?? [],
       login,
-      coinBalance
+      coinBalance,
+      blocked: false
     }
   } catch (err) {
     console.error(err)
-    toast.error(account.name || accountsData[account.cookies]?.login || "Аккаунт", {
-      description: "Ошибка получения наград " + (err instanceof Error ? err.message : String(err)),
-    })
+    reportAccountError(account, "Ошибка получения наград", err)
   } finally {
     loadingAccounts[account.cookies] = false
   }
@@ -263,9 +279,7 @@ const claimDailyCoins = async (account: Account): Promise<void> => {
     }
   } catch (err) {
     console.error(err)
-    toast.error(account.name || accountsData[account.cookies]?.login || "Аккаунт", {
-      description: "Ошибка получения награды " + (err instanceof Error ? err.message : String(err)),
-    })
+    reportAccountError(account, "Ошибка получения награды", err)
   } finally {
     loadingAccounts[account.cookies] = false
   }
@@ -294,9 +308,7 @@ const claimDailyGameRewards = async (account: Account): Promise<void> => {
     }
   } catch (err) {
     console.error(err)
-    toast.error(account.name || accountsData[account.cookies]?.login || "Аккаунт", {
-      description: "Ошибка получения игровых наград " + (err instanceof Error ? err.message : String(err)),
-    })
+    reportAccountError(account, "Ошибка получения игровых наград", err)
   } finally {
     loadingAccounts[account.cookies] = false
   }
@@ -327,9 +339,7 @@ const roll = async (account: Account): Promise<void> => {
     })
   } catch (err) {
     console.error(err)
-    toast.error(account.name || accountsData[account.cookies]?.login || "Аккаунт", {
-      description: "Ошибка получения награды " + (err instanceof Error ? err.message : String(err)),
-    })
+    reportAccountError(account, "Ошибка получения награды", err)
   } finally {
     loadingAccounts[account.cookies] = false
   }
@@ -500,7 +510,10 @@ const getAccountDisplayName = (account: Account): string => {
 
     <ScrollArea class="-mr-3 pr-3">
       <div v-for="account in config.accounts" :key="account.cookies"
-        class="relative mb-2 overflow-hidden rounded-lg border border-border/60 bg-card p-4 transition-colors hover:border-border">
+        class="relative mb-2 overflow-hidden rounded-lg border bg-card p-4 transition-colors"
+        :class="accountsData[account.cookies]?.blocked
+          ? 'border-destructive/50'
+          : 'border-border/60 hover:border-border'">
         <div v-if="loadingAccounts[account.cookies] || spendingAllCoins"
           class="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
           <RefreshCw class="size-6 animate-spin text-primary" />
@@ -518,6 +531,11 @@ const getAccountDisplayName = (account: Account): string => {
                 {{ accountsData[account.cookies]?.coinBalance || 'Н/Д' }}
                 <Coin class="inline" />
               </span>
+            </div>
+            <div v-if="accountsData[account.cookies]?.blocked"
+              class="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <ShieldAlert class="size-4 shrink-0" />
+              <span>Яндекс заблокировал доступ (403): IP определён как VPN/прокси. Смените прокси или IP и обновите.</span>
             </div>
             <div v-if="accountsData[account.cookies]?.signInInfo?.plan" class="flex gap-1.5">
               <div v-for="(day, dayIndex) in accountsData[account.cookies].signInInfo.plan"

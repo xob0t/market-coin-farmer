@@ -1,4 +1,3 @@
-<!-- src/components/wails-controls/controls/Windows.vue -->
 <script setup lang="ts">
 import { twMerge } from 'tailwind-merge'
 import Button from '../components/Button.vue'
@@ -7,26 +6,22 @@ import { closeWindow, isWindowMaximized, maximizeWindow, minimizeWindow } from '
 </script>
 
 <template>
-  <div :class="twMerge('h-8', $attrs.class as string)">
-    <Button
-      class="max-h-8 w-[46px] cursor-default rounded-none bg-transparent text-black/90 hover:bg-black/[.05] active:bg-black/[.03] dark:text-white dark:hover:bg-white/[.06] dark:active:bg-white/[.04]"
-      @click="minimizeWindow"
-    >
+  <div :class="twMerge('h-8 flex', $attrs.class as string)" class="mt-[2px] mr-[2px]">
+    <!-- Minimize Button -->
+    <Button class="group h-8 w-[46px] rounded-none bg-transparent text-foreground/70 transition-all duration-150 hover:bg-accent hover:text-foreground active:bg-accent/80" @click="minimizeWindow">
       <Icons icon="minimizeWin" />
     </Button>
-    <Button
-      :class="
-        twMerge(
-          'max-h-8 w-[46px] cursor-default rounded-none bg-transparent',
-          'text-black/90 hover:bg-black/[.05] active:bg-black/[.03] dark:text-white dark:hover:bg-white/[.06] dark:active:bg-white/[.04]',
-        )
-      "
-      @click="maximizeWindow"
-    >
-      <Icons v-if="isWindowMaximized" icon="maximizeRestoreWin" />
-      <Icons v-else icon="maximizeWin" />
+
+    <!-- Maximize/Restore Button -->
+    <Button class="group h-8 w-[46px] rounded-none bg-transparent text-foreground/70 transition-all duration-150 hover:bg-accent hover:text-foreground active:bg-accent/80" @click="maximizeWindow">
+      <Icons :icon="isWindowMaximized ? 'maximizeRestoreWin' : 'maximizeWin'" />
     </Button>
-    <Button class="max-h-8 w-[46px] cursor-default rounded-none bg-transparent text-black/90 hover:bg-[#c42b1c] hover:text-white active:bg-[#c42b1c]/90 dark:text-white" @click="closeWindow">
+
+    <!-- Close Button -->
+    <Button
+      class="group h-8 w-[46px] rounded-none bg-transparent text-foreground/70 transition-all duration-150 hover:bg-red-600 hover:text-white active:bg-red-700 active:text-white dark:hover:bg-red-500 dark:active:bg-red-600"
+      @click="closeWindow"
+    >
       <Icons icon="closeWin" />
     </Button>
   </div>

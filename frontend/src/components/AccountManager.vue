@@ -14,7 +14,7 @@ import { Account } from '../../bindings/backend'
 import { Clipboard } from '@wailsio/runtime'
 import { onKeyStroke } from '@vueuse/core'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 
 const config = ref<any>(null)
 const cookies = ref('')
@@ -221,6 +221,8 @@ const addAccount = async (): Promise<void> => {
   }
 }
 
+// Browser login fills the cookies field so the single "Добавить аккаунт"
+// button remains the only submit action; the user reviews then adds.
 const loginWithBrowser = async (): Promise<void> => {
   if (browserLoginActive.value) return
 
@@ -239,7 +241,6 @@ const loginWithBrowser = async (): Promise<void> => {
     if (!name.value.trim() && result.login) {
       name.value = result.login
     }
-    await addAccount()
   } catch (err) {
     if (loginCancelled) return
     console.error(err)
@@ -540,43 +541,51 @@ const getAccountDisplayName = (account: Account): string => {
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>Добавить аккаунт</DialogTitle>
-        <DialogDescription> Войдите через браузер или вставьте cookies вручную. </DialogDescription>
+        <DialogDescription>Заполните данные аккаунта и получите cookies.</DialogDescription>
       </DialogHeader>
 
-      <div class="grid grid-cols-1 gap-2">
-        <Input v-model="name" placeholder="Имя (опционально)" title="Имя аккаунта" :disabled="browserLoginActive" />
-        <Input v-model="proxy" placeholder="proxytype://username:password@server:port" title="Прокси для аккаунта" :disabled="browserLoginActive" />
-      </div>
-
-      <template v-if="browserLoginAvailable">
-        <template v-if="!browserLoginActive">
-          <Button class="w-full cursor-pointer" title="Открыть браузер для входа в Яндекс" @click="loginWithBrowser">
-            <LogIn class="size-4" />
-            Войти через браузер
-          </Button>
-        </template>
-        <template v-else>
-          <div class="flex items-center gap-3 rounded-md border border-border/60 bg-background/50 px-3 py-2">
-            <RefreshCw class="size-4 shrink-0 animate-spin text-primary" />
-            <span class="text-sm text-muted-foreground">Войдите в аккаунт в открывшемся окне браузера…</span>
-            <Button variant="outline" size="sm" class="ml-auto cursor-pointer" title="Закрыть браузер и отменить вход" @click="cancelBrowserLogin">
-              <X class="size-4" />
-              Отменить
-            </Button>
-          </div>
-        </template>
-
-        <div class="flex items-center gap-3 text-xs text-muted-foreground">
-          <span class="h-px flex-1 bg-border"></span>
-          или вставьте cookies
-          <span class="h-px flex-1 bg-border"></span>
+      <div class="flex flex-col gap-4 py-2">
+        <div class="flex flex-col gap-1.5">
+          <Label for="acc-name">Имя <span class="font-normal text-muted-foreground">(опционально)</span></Label>
+          <Input id="acc-name" v-model="name" placeholder="Мой аккаунт" :disabled="browserLoginActive" />
         </div>
-      </template>
 
-      <div class="flex flex-col gap-2">
-        <Textarea v-model="cookies" placeholder="Cookies (Netscape)" required class="h-24 resize-none" title="Cookies аккаунта" :disabled="browserLoginActive" />
-        <Button variant="outline" class="cursor-pointer" title="Добавить аккаунт из cookies" :disabled="browserLoginActive" @click="addAccount"> Добавить </Button>
+        <div class="flex flex-col gap-1.5">
+          <Label for="acc-proxy">Прокси <span class="font-normal text-muted-foreground">(опционально)</span></Label>
+          <Input id="acc-proxy" v-model="proxy" placeholder="proxytype://username:password@server:port" :disabled="browserLoginActive" />
+          <p v-if="browserLoginAvailable" class="text-xs text-muted-foreground">Применяется и к входу через браузер, и к аккаунту.</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between gap-2">
+            <Label for="acc-cookies">Cookies <span class="font-normal text-muted-foreground">(Netscape)</span></Label>
+            <template v-if="browserLoginAvailable && !browserLoginActive">
+              <Button variant="secondary" size="sm" class="h-7 cursor-pointer" title="Открыть браузер для входа в Яндекс" @click="loginWithBrowser">
+                <LogIn class="size-3.5" />
+                Войти через браузер
+              </Button>
+            </template>
+            <template v-else-if="browserLoginActive">
+              <Button variant="outline" size="sm" class="h-7 cursor-pointer" title="Закрыть браузер и отменить вход" @click="cancelBrowserLogin">
+                <X class="size-3.5" />
+                Отменить
+              </Button>
+            </template>
+          </div>
+          <Textarea id="acc-cookies" v-model="cookies" placeholder="Вставьте cookies или получите их через браузер" required class="h-24 resize-none" :disabled="browserLoginActive" />
+          <p v-if="browserLoginActive" class="flex items-center gap-2 text-xs text-muted-foreground">
+            <RefreshCw class="size-3.5 shrink-0 animate-spin text-primary" />
+            Войдите в аккаунт в открывшемся окне браузера…
+          </p>
+        </div>
       </div>
+
+      <DialogFooter>
+        <Button class="w-full cursor-pointer" title="Добавить аккаунт" :disabled="browserLoginActive || !cookies.trim()" @click="addAccount">
+          <Plus class="size-4" />
+          Добавить аккаунт
+        </Button>
+      </DialogFooter>
     </DialogContent>
   </Dialog>
 

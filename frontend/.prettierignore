@@ -1,0 +1,5 @@
+dist
+bindings
+node_modules
+components.json
+package-lock.json

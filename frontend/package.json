@@ -7,7 +7,10 @@
     "dev": "vite",
     "build:dev": "vue-tsc && vite build --minify false --mode development",
     "build": "vue-tsc && vite build --mode production",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint src *.ts",
+    "lint:fix": "eslint src *.ts --fix",
+    "format": "prettier --write src *.ts *.json index.html"
   },
   "dependencies": {
     "@lucide/vue": "^1.30.0",
@@ -26,9 +29,15 @@
     "@iconify/vue": "^5.0.1",
     "@types/node": "^26.2.0",
     "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "@vue/eslint-config-typescript": "^14.9.0",
     "@wailsio/runtime": "3.0.0-beta.5",
     "autoprefixer": "^10.4.21",
+    "eslint": "^10.8.1",
+    "eslint-plugin-vue": "^10.10.0",
+    "jiti": "^2.7.0",
     "postcss": "^8.5.3",
+    "prettier": "^3.9.6",
     "tailwindcss": "^4.1.4",
     "typescript": "^5.9.3",
     "vite": "^8.2.1",

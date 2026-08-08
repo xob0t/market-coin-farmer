@@ -29,6 +29,9 @@ type Account struct {
 	RewardsJson    string    `json:"rewardsJson" koanf:"-"`
 	LastAuth       time.Time `json:"-"  koanf:"-"`
 	SignInInfoJson string    `json:"signInInfoJson" koanf:"-"`
+	AppVersion     string    `json:"-" koanf:"-"`
+	FrontGlue      string    `json:"-" koanf:"-"`
+	Language       string    `json:"-" koanf:"-"`
 }
 
 type GlobalSettings struct {

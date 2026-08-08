@@ -33,6 +33,7 @@ func main() {
 			application.NewService(&ConfigService{}),
 			application.NewService(&YaApiService{}),
 			application.NewService(&VersionService{}),
+			application.NewService(&BrowserAuthService{}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

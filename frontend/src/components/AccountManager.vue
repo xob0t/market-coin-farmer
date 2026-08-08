@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted, reactive } from 'vue'
-import { ConfigService, YaApiService } from '../../bindings/backend'
+import { ConfigService, YaApiService, BrowserAuthService } from '../../bindings/backend'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -9,11 +9,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Coin from '@/components/ui/svg/Coin.vue'
 import { toast } from 'vue-sonner'
-import { RefreshCw, Pencil, Trash2, Frown, Dices, ShieldAlert } from '@lucide/vue'
+import { RefreshCw, Pencil, Trash2, Frown, Dices, ShieldAlert, LogIn, X, Plus } from '@lucide/vue'
 import { Account } from '../../bindings/backend'
 import { Clipboard } from '@wailsio/runtime'
 import { onKeyStroke } from '@vueuse/core'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 const config = ref<any>(null)
 const cookies = ref('')
@@ -43,7 +44,20 @@ const refreshingAll = ref(false)
 const hideJunk = ref(false)
 const spendingAllCoins = ref(false)
 
+const importDialogOpen = ref(false)
+const browserLoginAvailable = ref(false)
+const browserLoginActive = ref(false)
+let loginPromise: ReturnType<typeof BrowserAuthService.Login> | null = null
+let loginCancelled = false
+
 onMounted(async () => {
+  BrowserAuthService.Available()
+    .then((available) => {
+      browserLoginAvailable.value = available
+    })
+    .catch(() => {
+      browserLoginAvailable.value = false
+    })
   await claimAndUpdateAccountInfo()
   startCountdownTimer()
 })
@@ -187,6 +201,7 @@ const addAccount = async (): Promise<void> => {
     name.value = ''
     cookies.value = ''
     proxy.value = ''
+    importDialogOpen.value = false
 
     // Find the updated account in config
     const newAccount = config.value?.accounts?.find((a: Account) => a.cookies === btoa(account.cookies))
@@ -203,6 +218,52 @@ const addAccount = async (): Promise<void> => {
     toast.error('Ошибка добавления аккаунта', {
       description: err instanceof Error ? err.message : String(err),
     })
+  }
+}
+
+// Browser login fills the cookies field so the single "Добавить аккаунт"
+// button remains the only submit action; the user reviews then adds.
+const loginWithBrowser = async (): Promise<void> => {
+  if (browserLoginActive.value) return
+
+  browserLoginActive.value = true
+  loginCancelled = false
+  try {
+    loginPromise = BrowserAuthService.Login(proxy.value.trim())
+    const result = await loginPromise
+
+    if (!result?.cookies?.trim()) {
+      toast.error('Не удалось получить cookies из браузера')
+      return
+    }
+
+    cookies.value = result.cookies
+    if (!name.value.trim() && result.login) {
+      name.value = result.login
+    }
+  } catch (err) {
+    if (loginCancelled) return
+    console.error(err)
+    toast.error('Ошибка входа через браузер', {
+      description: err instanceof Error ? err.message : String(err),
+    })
+  } finally {
+    browserLoginActive.value = false
+    loginPromise = null
+  }
+}
+
+const cancelBrowserLogin = (): void => {
+  loginCancelled = true
+  loginPromise?.cancel()
+}
+
+// Closing the import dialog (ESC, overlay, X) must also tear down an in-flight
+// browser login so we don't leave an orphaned browser window open.
+const onImportDialogChange = (open: boolean): void => {
+  importDialogOpen.value = open
+  if (!open && browserLoginActive.value) {
+    cancelBrowserLogin()
   }
 }
 
@@ -476,31 +537,71 @@ const getAccountDisplayName = (account: Account): string => {
 </script>
 
 <template>
-  <div class="rounded-xl border border-border/60 bg-card/50 p-3">
-    <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
-      <Input v-model="name" placeholder="Имя (опционально)" title="Имя аккаунта" />
-      <Textarea v-model="cookies" placeholder="Cookies (Netscape) *" required class="md:col-span-2 h-9 min-h-9 resize-none py-2 leading-tight" title="Cookies аккаунта" />
-      <Input v-model="proxy" placeholder="proxytype://username:password@server:port" class="md:col-span-2" title="Прокси для аккаунта" />
-      <Button class="cursor-pointer h-9" title="Добавить новый аккаунт" @click="addAccount">Добавить</Button>
-    </div>
-  </div>
+  <Dialog :open="importDialogOpen" @update:open="onImportDialogChange">
+    <DialogContent class="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>Добавить аккаунт</DialogTitle>
+      </DialogHeader>
 
-  <div v-if="config?.accounts.length > 0" class="mt-4 space-y-3">
-    <div class="flex items-center gap-3 select-none">
-      <Button
-        variant="ghost"
-        size="icon"
-        class="cursor-pointer size-9 shrink-0 text-muted-foreground hover:text-foreground"
-        title="Обновить все аккаунты и получить монетки"
-        @click="claimAndUpdateAccountInfo"
-      >
-        <RefreshCw class="size-4" :class="{ 'animate-spin': refreshingAll }" />
+      <div class="flex flex-col gap-4 py-2">
+        <div class="flex flex-col gap-1.5">
+          <Label for="acc-name">Имя <span class="font-normal text-muted-foreground">(опционально)</span></Label>
+          <Input id="acc-name" v-model="name" placeholder="Мой аккаунт" :disabled="browserLoginActive" />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <Label for="acc-proxy">Прокси <span class="font-normal text-muted-foreground">(опционально)</span></Label>
+          <Input id="acc-proxy" v-model="proxy" placeholder="proxytype://username:password@server:port" :disabled="browserLoginActive" />
+          <p v-if="browserLoginAvailable" class="text-xs text-muted-foreground">Применяется и к входу через браузер, и к аккаунту.</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between gap-2">
+            <Label for="acc-cookies">Cookies <span class="font-normal text-muted-foreground">(Netscape)</span></Label>
+            <template v-if="browserLoginAvailable && !browserLoginActive">
+              <Button variant="secondary" size="sm" class="h-7 cursor-pointer" title="Открыть браузер для входа в Яндекс" @click="loginWithBrowser">
+                <LogIn class="size-3.5" />
+                Войти через браузер
+              </Button>
+            </template>
+            <template v-else-if="browserLoginActive">
+              <Button variant="outline" size="sm" class="h-7 cursor-pointer" title="Закрыть браузер и отменить вход" @click="cancelBrowserLogin">
+                <X class="size-3.5" />
+                Отменить
+              </Button>
+            </template>
+          </div>
+          <Textarea id="acc-cookies" v-model="cookies" placeholder="Вставьте cookies или получите их через браузер" required class="h-24 resize-none" :disabled="browserLoginActive" />
+          <p v-if="browserLoginActive" class="flex items-center gap-2 text-xs text-muted-foreground">
+            <RefreshCw class="size-3.5 shrink-0 animate-spin text-primary" />
+            Войдите в аккаунт в открывшемся окне браузера…
+          </p>
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button class="w-full cursor-pointer" title="Добавить аккаунт" :disabled="browserLoginActive || !cookies.trim()" @click="addAccount">
+          <Plus class="size-4" />
+          Добавить аккаунт
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <div v-if="config?.accounts.length > 0" class="flex min-h-0 flex-1 flex-col gap-3 pt-4">
+    <div class="flex shrink-0 items-center gap-3 select-none">
+      <Button class="cursor-pointer" title="Добавить аккаунт" @click="importDialogOpen = true">
+        <Plus class="size-4" />
+        Аккаунт
       </Button>
       <Button :disabled="spendingAllCoins" class="cursor-pointer" title="Потратить все монеты" variant="outline" @click="spendAllCoins">
         Потратить все монеты
         <RefreshCw v-if="spendingAllCoins" class="size-4 ml-1 animate-spin" />
       </Button>
-      <Label for="hideJunk" class="cursor-pointer gap-2 text-muted-foreground">
+      <Button variant="outline" size="icon" class="cursor-pointer size-9 shrink-0" title="Обновить все аккаунты и получить монетки" @click="claimAndUpdateAccountInfo">
+        <RefreshCw class="size-4" :class="{ 'animate-spin': refreshingAll }" />
+      </Button>
+      <Label for="hideJunk" class="ml-1 cursor-pointer gap-2 text-muted-foreground">
         Скрыть скидки
         <Switch id="hideJunk" v-model="hideJunk" />
       </Label>
@@ -510,7 +611,7 @@ const getAccountDisplayName = (account: Account): string => {
       </p>
     </div>
 
-    <ScrollArea class="-mr-3 pr-3">
+    <ScrollArea class="-mr-3 min-h-0 flex-1 pr-3">
       <div
         v-for="account in config.accounts"
         :key="account.cookies"
@@ -634,8 +735,12 @@ const getAccountDisplayName = (account: Account): string => {
     </ScrollArea>
   </div>
 
-  <div v-if="config?.accounts.length === 0" class="flex h-[calc(100%-4rem)] w-full flex-col items-center justify-center gap-3 text-muted-foreground">
+  <div v-if="config?.accounts.length === 0" class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 text-muted-foreground">
     <Frown class="size-20 text-muted-foreground/30 wrench" stroke-width="1.5" />
     <p class="text-sm">Аккаунты не найдены</p>
+    <Button class="cursor-pointer" title="Добавить аккаунт" @click="importDialogOpen = true">
+      <Plus class="size-4" />
+      Добавить аккаунт
+    </Button>
   </div>
 </template>

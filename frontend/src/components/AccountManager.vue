@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted, reactive } from 'vue'
-import { ConfigService, YaApiService } from '../../bindings/backend'
+import { ConfigService, YaApiService, BrowserAuthService } from '../../bindings/backend'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Coin from '@/components/ui/svg/Coin.vue'
 import { toast } from 'vue-sonner'
-import { RefreshCw, Pencil, Trash2, Frown, Dices, ShieldAlert } from '@lucide/vue'
+import { RefreshCw, Pencil, Trash2, Frown, Dices, ShieldAlert, LogIn, X, ChevronDown } from '@lucide/vue'
 import { Account } from '../../bindings/backend'
 import { Clipboard } from '@wailsio/runtime'
 import { onKeyStroke } from '@vueuse/core'
@@ -42,6 +42,11 @@ const loadingAccounts = reactive<Record<string, boolean>>({})
 const refreshingAll = ref(false)
 const hideJunk = ref(false)
 const spendingAllCoins = ref(false)
+
+const showManualImport = ref(false)
+const browserLoginActive = ref(false)
+let loginPromise: ReturnType<typeof BrowserAuthService.Login> | null = null
+let loginCancelled = false
 
 onMounted(async () => {
   await claimAndUpdateAccountInfo()
@@ -204,6 +209,42 @@ const addAccount = async (): Promise<void> => {
       description: err instanceof Error ? err.message : String(err),
     })
   }
+}
+
+const loginWithBrowser = async (): Promise<void> => {
+  if (browserLoginActive.value) return
+
+  browserLoginActive.value = true
+  loginCancelled = false
+  try {
+    loginPromise = BrowserAuthService.Login(proxy.value.trim())
+    const result = await loginPromise
+
+    if (!result?.cookies?.trim()) {
+      toast.error('Не удалось получить cookies из браузера')
+      return
+    }
+
+    cookies.value = result.cookies
+    if (!name.value.trim() && result.login) {
+      name.value = result.login
+    }
+    await addAccount()
+  } catch (err) {
+    if (loginCancelled) return
+    console.error(err)
+    toast.error('Ошибка входа через браузер', {
+      description: err instanceof Error ? err.message : String(err),
+    })
+  } finally {
+    browserLoginActive.value = false
+    loginPromise = null
+  }
+}
+
+const cancelBrowserLogin = (): void => {
+  loginCancelled = true
+  loginPromise?.cancel()
 }
 
 const removeAccount = async (account: Account): Promise<void> => {
@@ -477,11 +518,40 @@ const getAccountDisplayName = (account: Account): string => {
 
 <template>
   <div class="rounded-xl border border-border/60 bg-card/50 p-3">
-    <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
-      <Input v-model="name" placeholder="Имя (опционально)" title="Имя аккаунта" />
-      <Textarea v-model="cookies" placeholder="Cookies (Netscape) *" required class="md:col-span-2 h-9 min-h-9 resize-none py-2 leading-tight" title="Cookies аккаунта" />
-      <Input v-model="proxy" placeholder="proxytype://username:password@server:port" class="md:col-span-2" title="Прокси для аккаунта" />
-      <Button class="cursor-pointer h-9" title="Добавить новый аккаунт" @click="addAccount">Добавить</Button>
+    <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+      <Input v-model="name" placeholder="Имя (опционально)" title="Имя аккаунта" :disabled="browserLoginActive" />
+      <Input v-model="proxy" placeholder="proxytype://username:password@server:port" title="Прокси для аккаунта" :disabled="browserLoginActive" />
+    </div>
+
+    <template v-if="!browserLoginActive">
+      <Button class="mt-2 w-full cursor-pointer" title="Открыть браузер для входа в Яндекс" @click="loginWithBrowser">
+        <LogIn class="size-4" />
+        Войти через браузер
+      </Button>
+    </template>
+    <template v-else>
+      <div class="mt-2 flex items-center gap-3 rounded-md border border-border/60 bg-background/50 px-3 py-2">
+        <RefreshCw class="size-4 shrink-0 animate-spin text-primary" />
+        <span class="text-sm text-muted-foreground">Войдите в аккаунт в открывшемся окне браузера…</span>
+        <Button variant="outline" size="sm" class="ml-auto cursor-pointer" title="Закрыть браузер и отменить вход" @click="cancelBrowserLogin">
+          <X class="size-4" />
+          Отменить
+        </Button>
+      </div>
+    </template>
+
+    <button
+      type="button"
+      class="mt-2 flex cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      :disabled="browserLoginActive"
+      @click="showManualImport = !showManualImport"
+    >
+      <ChevronDown class="size-3.5 transition-transform" :class="{ '-rotate-90': !showManualImport }" />
+      Вставить cookies вручную
+    </button>
+    <div v-if="showManualImport" class="mt-2 flex flex-col gap-2">
+      <Textarea v-model="cookies" placeholder="Cookies (Netscape) *" required class="h-20 resize-none" title="Cookies аккаунта" :disabled="browserLoginActive" />
+      <Button variant="outline" class="cursor-pointer" title="Добавить аккаунт из cookies" @click="addAccount"> Добавить </Button>
     </div>
   </div>
 

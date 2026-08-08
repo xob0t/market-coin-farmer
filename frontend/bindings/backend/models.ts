@@ -79,6 +79,34 @@ export class GlobalSettings {
     }
 }
 
+/**
+ * LoginResult is returned to the frontend after a browser login attempt.
+ */
+export class LoginResult {
+    "cookies": string;
+    "login": string;
+
+    /** Creates a new LoginResult instance. */
+    constructor($$source: Partial<LoginResult> = {}) {
+        if (!("cookies" in $$source)) {
+            this["cookies"] = "";
+        }
+        if (!("login" in $$source)) {
+            this["login"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LoginResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): LoginResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LoginResult($$parsedSource as Partial<LoginResult>);
+    }
+}
+
 // Private type creation functions
 const $$createType0 = Account.createFrom;
 const $$createType1 = $Create.Array($$createType0);

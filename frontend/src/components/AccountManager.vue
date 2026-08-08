@@ -14,7 +14,7 @@ import { Account } from '../../bindings/backend'
 import { Clipboard } from '@wailsio/runtime'
 import { onKeyStroke } from '@vueuse/core'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 const config = ref<any>(null)
 const cookies = ref('')
@@ -541,7 +541,6 @@ const getAccountDisplayName = (account: Account): string => {
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>Добавить аккаунт</DialogTitle>
-        <DialogDescription>Заполните данные аккаунта и получите cookies.</DialogDescription>
       </DialogHeader>
 
       <div class="flex flex-col gap-4 py-2">

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -205,12 +206,12 @@ type gameClaimSummary struct {
 }
 
 // GetRewardsJson retrieves current prizes, login, and coin balance.
-func (rs *YaApiService) GetRewardsJson(account *Account) (string, string, string, error) {
-	if err := rs.ensureAuth(account); err != nil {
+func (rs *YaApiService) GetRewardsJson(ctx context.Context, account *Account) (string, string, string, error) {
+	if err := rs.ensureAuth(ctx, account); err != nil {
 		return "", "", account.Login, fmt.Errorf("failed to authenticate: %w", err)
 	}
 
-	rewardsBody, err := rs.doJSON(account, http.MethodPost, fortunePrizesURL, "PROMOLOYALTY", appHostRequest{
+	rewardsBody, err := rs.doJSON(ctx, account, http.MethodPost, fortunePrizesURL, "PROMOLOYALTY", appHostRequest{
 		Path: fortunePath,
 		Params: map[string]any{
 			"wheel_ids": []string{"default_wheel"},
@@ -220,7 +221,7 @@ func (rs *YaApiService) GetRewardsJson(account *Account) (string, string, string
 		return "", "", account.Login, fmt.Errorf("failed to get prizes: %w", err)
 	}
 
-	mainBody, err := rs.doJSON(account, http.MethodPost, fortuneMainURL, "PROMOLOYALTY", appHostRequest{
+	mainBody, err := rs.doJSON(ctx, account, http.MethodPost, fortuneMainURL, "PROMOLOYALTY", appHostRequest{
 		Path:   fortunePath,
 		Params: map[string]any{},
 	})
@@ -238,12 +239,12 @@ func (rs *YaApiService) GetRewardsJson(account *Account) (string, string, string
 }
 
 // ClaimDailyCoins reads the current daily plan and claims it only when available.
-func (rs *YaApiService) ClaimDailyCoins(account *Account) (string, error) {
-	if err := rs.ensureAuth(account); err != nil {
+func (rs *YaApiService) ClaimDailyCoins(ctx context.Context, account *Account) (string, error) {
+	if err := rs.ensureAuth(ctx, account); err != nil {
 		return "", fmt.Errorf("failed to authenticate: %w", err)
 	}
 
-	screenBody, err := rs.doJSON(account, http.MethodPost, dailyScreenURL, "PROMOLOYALTY", appHostRequest{
+	screenBody, err := rs.doJSON(ctx, account, http.MethodPost, dailyScreenURL, "PROMOLOYALTY", appHostRequest{
 		Path:   fortunePath,
 		Params: map[string]any{},
 	})
@@ -259,7 +260,7 @@ func (rs *YaApiService) ClaimDailyCoins(account *Account) (string, error) {
 		return string(screenBody), nil
 	}
 
-	claimBody, err := rs.doJSON(account, http.MethodPost, dailyClaimURL, "PROMOLOYALTY", appHostRequest{
+	claimBody, err := rs.doJSON(ctx, account, http.MethodPost, dailyClaimURL, "PROMOLOYALTY", appHostRequest{
 		Path:   fortunePath,
 		Params: map[string]any{},
 	})
@@ -271,12 +272,12 @@ func (rs *YaApiService) ClaimDailyCoins(account *Account) (string, error) {
 }
 
 // Roll executes a spin using the active AppHost endpoint.
-func (rs *YaApiService) Roll(account *Account) (string, error) {
-	if err := rs.ensureAuth(account); err != nil {
+func (rs *YaApiService) Roll(ctx context.Context, account *Account) (string, error) {
+	if err := rs.ensureAuth(ctx, account); err != nil {
 		return "", fmt.Errorf("failed to authenticate: %w", err)
 	}
 
-	body, err := rs.doJSON(account, http.MethodPost, fortuneSpinURL, "PROMOLOYALTY", appHostRequest{
+	body, err := rs.doJSON(ctx, account, http.MethodPost, fortuneSpinURL, "PROMOLOYALTY", appHostRequest{
 		Path: fortunePath,
 		Params: map[string]any{
 			"wheelId": "default_wheel",
@@ -295,12 +296,12 @@ func (rs *YaApiService) Roll(account *Account) (string, error) {
 // ClaimGameRewards discovers current GamesHub games, submits their current
 // maximum result, and claims any achieved legacy reward levels. New games are
 // picked up from the server response without code changes.
-func (rs *YaApiService) ClaimGameRewards(account *Account) (string, error) {
-	if err := rs.ensureAuth(account); err != nil {
+func (rs *YaApiService) ClaimGameRewards(ctx context.Context, account *Account) (string, error) {
+	if err := rs.ensureAuth(ctx, account); err != nil {
 		return "", fmt.Errorf("failed to authenticate: %w", err)
 	}
 
-	screenBody, err := rs.doJSON(account, http.MethodPost, gamesHubURL, "PROMOLOYALTY", appHostRequest{
+	screenBody, err := rs.doJSON(ctx, account, http.MethodPost, gamesHubURL, "PROMOLOYALTY", appHostRequest{
 		Path:   fortunePath,
 		Params: map[string]any{},
 	})
@@ -336,7 +337,7 @@ func (rs *YaApiService) ClaimGameRewards(account *Account) (string, error) {
 			if mission.MissionID == "" || strings.Contains(missionStatus, "COMPLETED") || strings.Contains(missionStatus, "RECEIVED") {
 				continue
 			}
-			if _, err := rs.doLegacyResolver(account,
+			if _, err := rs.doLegacyResolver(ctx, account,
 				"src/resolvers/gamesHub/resolveGamesHubMissionClickV2:resolveGamesHubMissionClickV2",
 				"PROMOLOYALTY",
 				map[string]any{"missionId": mission.MissionID},
@@ -348,12 +349,12 @@ func (rs *YaApiService) ClaimGameRewards(account *Account) (string, error) {
 			if remaining <= 0 {
 				continue
 			}
-			eventType := rs.challengeEventType(account, mission)
+			eventType := rs.challengeEventType(ctx, account, mission)
 			if eventType == "" {
 				summary.UnsupportedChallenges = append(summary.UnsupportedChallenges, mission.MissionID)
 				continue
 			}
-			if _, err := rs.doJSON(account, http.MethodPost, gamesHubEventURL, "PROMOLOYALTY", appHostRequest{
+			if _, err := rs.doJSON(ctx, account, http.MethodPost, gamesHubEventURL, "PROMOLOYALTY", appHostRequest{
 				Path: fortunePath,
 				Params: map[string]any{
 					"gameToken": mission.Action.OpenGameAction.GameToken,
@@ -377,7 +378,7 @@ func (rs *YaApiService) ClaimGameRewards(account *Account) (string, error) {
 	summary.DiscoveredGames = len(gameIDs)
 
 	for _, gameID := range gameIDs {
-		result := rs.processGamesHubGame(account, games[gameID])
+		result := rs.processGamesHubGame(ctx, account, games[gameID])
 		summary.ClaimedLevels += len(result.ClaimedLevels)
 		summary.Games = append(summary.Games, result)
 	}
@@ -385,14 +386,14 @@ func (rs *YaApiService) ClaimGameRewards(account *Account) (string, error) {
 	// Market Rush remains exposed through the legacy bulk reward resolver and
 	// is not part of the GamesHub V2 game list in the reference capture.
 	marketRushResult := gameClaimResult{GameID: "market_rush"}
-	if _, err := rs.claimLegacyGameRewards(account, "market_rush", nil); err != nil {
+	if _, err := rs.claimLegacyGameRewards(ctx, account, "market_rush", nil); err != nil {
 		marketRushResult.Error = err.Error()
 	} else {
 		marketRushResult.Processed = true
 	}
 	summary.Games = append(summary.Games, marketRushResult)
 
-	refreshedBody, refreshErr := rs.doJSON(account, http.MethodPost, gamesHubURL, "PROMOLOYALTY", appHostRequest{
+	refreshedBody, refreshErr := rs.doJSON(ctx, account, http.MethodPost, gamesHubURL, "PROMOLOYALTY", appHostRequest{
 		Path:   fortunePath,
 		Params: map[string]any{},
 	})
@@ -424,13 +425,13 @@ func (rs *YaApiService) ClaimGameRewards(account *Account) (string, error) {
 	return string(body), nil
 }
 
-func (rs *YaApiService) challengeEventType(account *Account, mission gamesHubMission) string {
+func (rs *YaApiService) challengeEventType(ctx context.Context, account *Account, mission gamesHubMission) string {
 	keywords := missionEventKeywords(mission)
 	if len(keywords) == 0 {
 		return ""
 	}
 
-	eventNames := rs.discoverGameEventNames(account, mission.Action.OpenGameAction)
+	eventNames := rs.discoverGameEventNames(ctx, account, mission.Action.OpenGameAction)
 	bestName := ""
 	bestScore := 0
 	bestMatches := 0
@@ -449,7 +450,7 @@ func (rs *YaApiService) challengeEventType(account *Account, mission gamesHubMis
 	return bestName
 }
 
-func (rs *YaApiService) discoverGameEventNames(account *Account, game gamesHubGame) []string {
+func (rs *YaApiService) discoverGameEventNames(ctx context.Context, account *Account, game gamesHubGame) []string {
 	gameURL := strings.TrimSpace(game.GameURL)
 	if gameURL == "" {
 		return nil
@@ -469,7 +470,7 @@ func (rs *YaApiService) discoverGameEventNames(account *Account, game gamesHubGa
 		return nil
 	}
 
-	pageBody, err := rs.fetchGameAsset(account, pageURL.String(), "", 2<<20)
+	pageBody, err := rs.fetchGameAsset(ctx, account, pageURL.String(), "", 2<<20)
 	if err != nil {
 		rs.cacheGameEventNames(gameURL, nil)
 		return nil
@@ -525,7 +526,7 @@ func (rs *YaApiService) discoverGameEventNames(account *Account, game gamesHubGa
 		scripts = scripts[:6]
 	}
 	for _, script := range scripts {
-		body, fetchErr := rs.fetchGameAsset(account, script.url, pageURL.String(), 5<<20)
+		body, fetchErr := rs.fetchGameAsset(ctx, account, script.url, pageURL.String(), 5<<20)
 		if fetchErr == nil {
 			collectEventNames(names, body)
 		}
@@ -553,7 +554,7 @@ func (rs *YaApiService) cacheGameEventNames(gameURL string, names []string) {
 	rs.eventCacheLock.Unlock()
 }
 
-func (rs *YaApiService) fetchGameAsset(account *Account, assetURL, referer string, maxBytes int64) ([]byte, error) {
+func (rs *YaApiService) fetchGameAsset(ctx context.Context, account *Account, assetURL, referer string, maxBytes int64) ([]byte, error) {
 	client, err := rs.getClient(account)
 	if err != nil {
 		return nil, err
@@ -562,6 +563,7 @@ func (rs *YaApiService) fetchGameAsset(account *Account, assetURL, referer strin
 	if err != nil {
 		return nil, err
 	}
+	req = req.WithContext(ctx)
 	setHeaders(req, map[string]string{
 		"accept":             "*/*",
 		"accept-language":    "en-US,en;q=0.9",
@@ -703,10 +705,10 @@ func addGamesHubGame(games map[string]gamesHubGame, game gamesHubGame) {
 	games[game.GameID] = game
 }
 
-func (rs *YaApiService) processGamesHubGame(account *Account, game gamesHubGame) gameClaimResult {
+func (rs *YaApiService) processGamesHubGame(ctx context.Context, account *Account, game gamesHubGame) gameClaimResult {
 	result := gameClaimResult{GameID: game.GameID}
 
-	statusBody, err := rs.doLegacyResolver(account,
+	statusBody, err := rs.doLegacyResolver(ctx, account,
 		"src/resolvers/gamesHub/resolveGamesHubGameStatusV2:resolveGamesHubGameStatusV2",
 		"PROMOLOYALTY",
 		map[string]any{"gameToken": game.GameToken},
@@ -734,7 +736,7 @@ func (rs *YaApiService) processGamesHubGame(account *Account, game gamesHubGame)
 	}
 
 	if needsResult && maxScore > 0 {
-		processedBody, processErr := rs.doLegacyResolver(account,
+		processedBody, processErr := rs.doLegacyResolver(ctx, account,
 			"src/resolvers/gamesHub/resolveGamesHubProcessGameResultV2:resolveGamesHubProcessGameResultV2",
 			"PROMOLOYALTY",
 			map[string]any{
@@ -770,7 +772,7 @@ func (rs *YaApiService) processGamesHubGame(account *Account, game gamesHubGame)
 		return result
 	}
 
-	claimBody, err := rs.claimLegacyGameRewards(account, game.GameID, claimableLevels)
+	claimBody, err := rs.claimLegacyGameRewards(ctx, account, game.GameID, claimableLevels)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -815,27 +817,27 @@ func decodeGameLevels(body []byte) ([]gameLevel, error) {
 	return response.Results[0].Data.GameStatus.Levels, nil
 }
 
-func (rs *YaApiService) claimLegacyGameRewards(account *Account, gameID string, levels []string) ([]byte, error) {
+func (rs *YaApiService) claimLegacyGameRewards(ctx context.Context, account *Account, gameID string, levels []string) ([]byte, error) {
 	params := map[string]any{"gameId": gameID}
 	if len(levels) > 0 {
 		params["levels"] = levels
 	}
-	return rs.doLegacyResolver(account,
+	return rs.doLegacyResolver(ctx, account,
 		"src/resolvers/cashbackLevels/fortune/resolveFetchFortuneGameRewardBulk:resolveFortuneGameRewardBulk",
 		"WEB",
 		params,
 	)
 }
 
-func (rs *YaApiService) doLegacyResolver(account *Account, resolver, target string, params map[string]any) ([]byte, error) {
+func (rs *YaApiService) doLegacyResolver(ctx context.Context, account *Account, resolver, target string, params map[string]any) ([]byte, error) {
 	resolverURL := marketOrigin + "/api/resolve/?r=" + url.QueryEscape(resolver)
-	return rs.doJSON(account, http.MethodPost, resolverURL, target, map[string]any{
+	return rs.doJSON(ctx, account, http.MethodPost, resolverURL, target, map[string]any{
 		"params": []any{params},
 		"path":   fortunePath,
 	})
 }
 
-func (rs *YaApiService) ensureAuth(account *Account) error {
+func (rs *YaApiService) ensureAuth(ctx context.Context, account *Account) error {
 	rs.init()
 	if account.TokenSK != "" && account.Login != "" && account.AppVersion != "" && account.FrontGlue != "" && time.Since(account.LastAuth) < time.Hour {
 		return nil
@@ -856,7 +858,7 @@ func (rs *YaApiService) ensureAuth(account *Account) error {
 		return nil
 	}
 
-	if err := rs.getProfileInfo(account); err != nil {
+	if err := rs.getProfileInfo(ctx, account); err != nil {
 		return fmt.Errorf("failed to get profile info: %w", err)
 	}
 	account.LastAuth = time.Now()
@@ -874,13 +876,13 @@ func (rs *YaApiService) ensureAuth(account *Account) error {
 	return nil
 }
 
-func (rs *YaApiService) getProfileInfo(account *Account) error {
+func (rs *YaApiService) getProfileInfo(ctx context.Context, account *Account) error {
 	client, err := rs.getClient(account)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	req, err := rs.createNavigationRequest(fortuneURL)
+	req, err := rs.createNavigationRequest(ctx, fortuneURL)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -922,7 +924,7 @@ func (rs *YaApiService) getProfileInfo(account *Account) error {
 	return nil
 }
 
-func (rs *YaApiService) doJSON(account *Account, method, requestURL, target string, payload any) ([]byte, error) {
+func (rs *YaApiService) doJSON(ctx context.Context, account *Account, method, requestURL, target string, payload any) ([]byte, error) {
 	client, err := rs.getClient(account)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
@@ -932,7 +934,7 @@ func (rs *YaApiService) doJSON(account *Account, method, requestURL, target stri
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode request: %w", err)
 	}
-	req, err := rs.createAPIRequest(account, method, requestURL, target, bytes.NewReader(encoded))
+	req, err := rs.createAPIRequest(ctx, account, method, requestURL, target, bytes.NewReader(encoded))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -959,11 +961,12 @@ func (rs *YaApiService) doJSON(account *Account, method, requestURL, target stri
 	return body, nil
 }
 
-func (rs *YaApiService) createNavigationRequest(requestURL string) (*fhttp.Request, error) {
+func (rs *YaApiService) createNavigationRequest(ctx context.Context, requestURL string) (*fhttp.Request, error) {
 	req, err := fhttp.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, err
 	}
+	req = req.WithContext(ctx)
 
 	headers := map[string]string{
 		"accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -986,11 +989,12 @@ func (rs *YaApiService) createNavigationRequest(requestURL string) (*fhttp.Reque
 	return req, nil
 }
 
-func (rs *YaApiService) createAPIRequest(account *Account, method, requestURL, target string, body io.Reader) (*fhttp.Request, error) {
+func (rs *YaApiService) createAPIRequest(ctx context.Context, account *Account, method, requestURL, target string, body io.Reader) (*fhttp.Request, error) {
 	req, err := fhttp.NewRequest(method, requestURL, body)
 	if err != nil {
 		return nil, err
 	}
+	req = req.WithContext(ctx)
 
 	acceptLanguage := "en-US,en;q=0.9"
 	if strings.Contains(requestURL, "/api/web/") {

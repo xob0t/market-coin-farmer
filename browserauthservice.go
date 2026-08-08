@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/chromedp/cdproto/network"
@@ -21,7 +22,44 @@ import (
 // Yandex interactively, then harvests the resulting cookies (including the
 // HttpOnly auth cookies that page scripts cannot read) via the DevTools
 // protocol and returns them in Netscape format.
-type BrowserAuthService struct{}
+type BrowserAuthService struct {
+	mu     sync.Mutex
+	active map[int]context.CancelFunc
+	nextID int
+}
+
+// register records a login's cancel func so it can be torn down on app
+// shutdown; unregister removes it once the login finishes.
+func (s *BrowserAuthService) register(cancel context.CancelFunc) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.active == nil {
+		s.active = make(map[int]context.CancelFunc)
+	}
+	id := s.nextID
+	s.nextID++
+	s.active[id] = cancel
+	return id
+}
+
+func (s *BrowserAuthService) unregister(id int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.active, id)
+}
+
+// ServiceShutdown is called by Wails when the app exits. It cancels any
+// in-progress browser logins so their browser processes are torn down instead
+// of being orphaned.
+func (s *BrowserAuthService) ServiceShutdown() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, cancel := range s.active {
+		cancel()
+		delete(s.active, id)
+	}
+	return nil
+}
 
 const (
 	// Yandex sets the session cookie on the passport domain after a successful
@@ -61,6 +99,13 @@ func (s *BrowserAuthService) Login(ctx context.Context, proxy string) (LoginResu
 		return LoginResult{}, err
 	}
 
+	// A cancellable child of the Wails call context so ServiceShutdown can tear
+	// the browser down on app exit, in addition to the frontend's own cancel.
+	runCtx, runCancel := context.WithCancel(ctx)
+	defer runCancel()
+	id := s.register(runCancel)
+	defer s.unregister(id)
+
 	profileDir, err := os.MkdirTemp("", "mcf-login-*")
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("failed to create browser profile: %w", err)
@@ -86,7 +131,7 @@ func (s *BrowserAuthService) Login(ctx context.Context, proxy string) (LoginResu
 		opts = append(opts, chromedp.ProxyServer("http://"+relay.addr()))
 	}
 
-	allocCtx, cancelAlloc := chromedp.NewExecAllocator(ctx, opts...)
+	allocCtx, cancelAlloc := chromedp.NewExecAllocator(runCtx, opts...)
 	defer cancelAlloc()
 
 	browserCtx, cancelBrowser := chromedp.NewContext(allocCtx)

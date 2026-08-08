@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Coin from '@/components/ui/svg/Coin.vue'
 import { toast } from 'vue-sonner'
-import { RefreshCw, Pencil, Trash2, Frown, Dices, ShieldAlert, LogIn, X, ChevronDown, Plus } from '@lucide/vue'
+import { RefreshCw, Pencil, Trash2, Frown, Dices, ShieldAlert, LogIn, X, Plus } from '@lucide/vue'
 import { Account } from '../../bindings/backend'
 import { Clipboard } from '@wailsio/runtime'
 import { onKeyStroke } from '@vueuse/core'
@@ -45,7 +45,6 @@ const hideJunk = ref(false)
 const spendingAllCoins = ref(false)
 
 const importDialogOpen = ref(false)
-const showManualImport = ref(false)
 const browserLoginAvailable = ref(false)
 const browserLoginActive = ref(false)
 let loginPromise: ReturnType<typeof BrowserAuthService.Login> | null = null
@@ -55,12 +54,9 @@ onMounted(async () => {
   BrowserAuthService.Available()
     .then((available) => {
       browserLoginAvailable.value = available
-      // No browser to log in with: surface manual cookie import by default.
-      if (!available) showManualImport.value = true
     })
     .catch(() => {
       browserLoginAvailable.value = false
-      showManualImport.value = true
     })
   await claimAndUpdateAccountInfo()
   startCountdownTimer()
@@ -570,20 +566,16 @@ const getAccountDisplayName = (account: Account): string => {
           </div>
         </template>
 
-        <button
-          type="button"
-          class="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          :disabled="browserLoginActive"
-          @click="showManualImport = !showManualImport"
-        >
-          <ChevronDown class="size-3.5 transition-transform" :class="{ '-rotate-90': !showManualImport }" />
-          Вставить cookies вручную
-        </button>
+        <div class="flex items-center gap-3 text-xs text-muted-foreground">
+          <span class="h-px flex-1 bg-border"></span>
+          или вставьте cookies
+          <span class="h-px flex-1 bg-border"></span>
+        </div>
       </template>
 
-      <div v-if="showManualImport || !browserLoginAvailable" class="flex flex-col gap-2">
-        <Textarea v-model="cookies" placeholder="Cookies (Netscape) *" required class="h-24 resize-none" title="Cookies аккаунта" :disabled="browserLoginActive" />
-        <Button variant="outline" class="cursor-pointer" title="Добавить аккаунт из cookies" @click="addAccount"> Добавить </Button>
+      <div class="flex flex-col gap-2">
+        <Textarea v-model="cookies" placeholder="Cookies (Netscape)" required class="h-24 resize-none" title="Cookies аккаунта" :disabled="browserLoginActive" />
+        <Button variant="outline" class="cursor-pointer" title="Добавить аккаунт из cookies" :disabled="browserLoginActive" @click="addAccount"> Добавить </Button>
       </div>
     </DialogContent>
   </Dialog>
@@ -594,20 +586,14 @@ const getAccountDisplayName = (account: Account): string => {
         <Plus class="size-4" />
         Аккаунт
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        class="cursor-pointer size-9 shrink-0 text-muted-foreground hover:text-foreground"
-        title="Обновить все аккаунты и получить монетки"
-        @click="claimAndUpdateAccountInfo"
-      >
-        <RefreshCw class="size-4" :class="{ 'animate-spin': refreshingAll }" />
-      </Button>
       <Button :disabled="spendingAllCoins" class="cursor-pointer" title="Потратить все монеты" variant="outline" @click="spendAllCoins">
         Потратить все монеты
         <RefreshCw v-if="spendingAllCoins" class="size-4 ml-1 animate-spin" />
       </Button>
-      <Label for="hideJunk" class="cursor-pointer gap-2 text-muted-foreground">
+      <Button variant="outline" size="icon" class="cursor-pointer size-9 shrink-0" title="Обновить все аккаунты и получить монетки" @click="claimAndUpdateAccountInfo">
+        <RefreshCw class="size-4" :class="{ 'animate-spin': refreshingAll }" />
+      </Button>
+      <Label for="hideJunk" class="ml-1 cursor-pointer gap-2 text-muted-foreground">
         Скрыть скидки
         <Switch id="hideJunk" v-model="hideJunk" />
       </Label>

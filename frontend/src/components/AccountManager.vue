@@ -589,8 +589,8 @@ const getAccountDisplayName = (account: Account): string => {
     </DialogContent>
   </Dialog>
 
-  <div v-if="config?.accounts.length > 0" class="mt-4 space-y-3">
-    <div class="flex items-center gap-3 select-none">
+  <div v-if="config?.accounts.length > 0" class="flex min-h-0 flex-1 flex-col gap-3 pt-4">
+    <div class="flex shrink-0 items-center gap-3 select-none">
       <Button class="cursor-pointer" title="Добавить аккаунт" @click="importDialogOpen = true">
         <Plus class="size-4" />
         Аккаунт
@@ -612,7 +612,7 @@ const getAccountDisplayName = (account: Account): string => {
       </p>
     </div>
 
-    <ScrollArea class="-mr-3 pr-3">
+    <ScrollArea class="-mr-3 min-h-0 flex-1 pr-3">
       <div
         v-for="account in config.accounts"
         :key="account.cookies"
@@ -736,7 +736,7 @@ const getAccountDisplayName = (account: Account): string => {
     </ScrollArea>
   </div>
 
-  <div v-if="config?.accounts.length === 0" class="flex h-full w-full flex-col items-center justify-center gap-4 text-muted-foreground">
+  <div v-if="config?.accounts.length === 0" class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 text-muted-foreground">
     <Frown class="size-20 text-muted-foreground/30 wrench" stroke-width="1.5" />
     <p class="text-sm">Аккаунты не найдены</p>
     <Button class="cursor-pointer" title="Добавить аккаунт" @click="importDialogOpen = true">

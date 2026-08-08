@@ -34,7 +34,7 @@ onMounted(async () => {
   </WindowTitlebar>
 
   <Toaster />
-  <main class="h-[calc(100vh-2rem)] w-full mt-8 overflow-hidden bg-background/92 px-6 pt-2 pb-5">
+  <main class="flex h-[calc(100vh-2rem)] w-full flex-col mt-8 overflow-hidden bg-background/92 px-6 pt-2 pb-5">
     <AccountManager />
   </main>
 </template>

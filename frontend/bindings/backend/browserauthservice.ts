@@ -18,6 +18,15 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
+ * Available reports whether a Chromium-based browser (Edge or Chrome) could be
+ * found, so the frontend can offer browser login only when it will work and
+ * fall back to manual cookie import otherwise.
+ */
+export function Available(): $CancellablePromise<boolean> {
+    return $Call.ByID(379354858);
+}
+
+/**
  * Login opens a browser window pointed at the Yandex login page and waits until
  * the user authenticates, then returns the captured cookies. When proxy is a
  * non-empty proxy URL, browser traffic is routed through a local relay so that

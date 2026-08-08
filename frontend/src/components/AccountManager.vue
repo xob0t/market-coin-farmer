@@ -44,11 +44,22 @@ const hideJunk = ref(false)
 const spendingAllCoins = ref(false)
 
 const showManualImport = ref(false)
+const browserLoginAvailable = ref(false)
 const browserLoginActive = ref(false)
 let loginPromise: ReturnType<typeof BrowserAuthService.Login> | null = null
 let loginCancelled = false
 
 onMounted(async () => {
+  BrowserAuthService.Available()
+    .then((available) => {
+      browserLoginAvailable.value = available
+      // No browser to log in with: surface manual cookie import by default.
+      if (!available) showManualImport.value = true
+    })
+    .catch(() => {
+      browserLoginAvailable.value = false
+      showManualImport.value = true
+    })
   await claimAndUpdateAccountInfo()
   startCountdownTimer()
 })
@@ -523,33 +534,36 @@ const getAccountDisplayName = (account: Account): string => {
       <Input v-model="proxy" placeholder="proxytype://username:password@server:port" title="Прокси для аккаунта" :disabled="browserLoginActive" />
     </div>
 
-    <template v-if="!browserLoginActive">
-      <Button class="mt-2 w-full cursor-pointer" title="Открыть браузер для входа в Яндекс" @click="loginWithBrowser">
-        <LogIn class="size-4" />
-        Войти через браузер
-      </Button>
-    </template>
-    <template v-else>
-      <div class="mt-2 flex items-center gap-3 rounded-md border border-border/60 bg-background/50 px-3 py-2">
-        <RefreshCw class="size-4 shrink-0 animate-spin text-primary" />
-        <span class="text-sm text-muted-foreground">Войдите в аккаунт в открывшемся окне браузера…</span>
-        <Button variant="outline" size="sm" class="ml-auto cursor-pointer" title="Закрыть браузер и отменить вход" @click="cancelBrowserLogin">
-          <X class="size-4" />
-          Отменить
+    <template v-if="browserLoginAvailable">
+      <template v-if="!browserLoginActive">
+        <Button class="mt-2 w-full cursor-pointer" title="Открыть браузер для входа в Яндекс" @click="loginWithBrowser">
+          <LogIn class="size-4" />
+          Войти через браузер
         </Button>
-      </div>
+      </template>
+      <template v-else>
+        <div class="mt-2 flex items-center gap-3 rounded-md border border-border/60 bg-background/50 px-3 py-2">
+          <RefreshCw class="size-4 shrink-0 animate-spin text-primary" />
+          <span class="text-sm text-muted-foreground">Войдите в аккаунт в открывшемся окне браузера…</span>
+          <Button variant="outline" size="sm" class="ml-auto cursor-pointer" title="Закрыть браузер и отменить вход" @click="cancelBrowserLogin">
+            <X class="size-4" />
+            Отменить
+          </Button>
+        </div>
+      </template>
+
+      <button
+        type="button"
+        class="mt-2 flex cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        :disabled="browserLoginActive"
+        @click="showManualImport = !showManualImport"
+      >
+        <ChevronDown class="size-3.5 transition-transform" :class="{ '-rotate-90': !showManualImport }" />
+        Вставить cookies вручную
+      </button>
     </template>
 
-    <button
-      type="button"
-      class="mt-2 flex cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-      :disabled="browserLoginActive"
-      @click="showManualImport = !showManualImport"
-    >
-      <ChevronDown class="size-3.5 transition-transform" :class="{ '-rotate-90': !showManualImport }" />
-      Вставить cookies вручную
-    </button>
-    <div v-if="showManualImport" class="mt-2 flex flex-col gap-2">
+    <div v-if="showManualImport || !browserLoginAvailable" class="mt-2 flex flex-col gap-2">
       <Textarea v-model="cookies" placeholder="Cookies (Netscape) *" required class="h-20 resize-none" title="Cookies аккаунта" :disabled="browserLoginActive" />
       <Button variant="outline" class="cursor-pointer" title="Добавить аккаунт из cookies" @click="addAccount"> Добавить </Button>
     </div>

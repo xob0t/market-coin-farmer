@@ -6,12 +6,7 @@ import type { WindowControlsProps, WindowTitlebarProps } from "./types"
 import { getOsType } from "./utils/os"
 import WindowControls from "./WindowControls.vue"
 
-const { windowControlsProps } = withDefaults(
-  defineProps<WindowTitlebarProps>(),
-  {
-    controlsOrder: "system",
-  }
-)
+const { windowControlsProps } = defineProps<WindowTitlebarProps>()
 
 const osType = ref<string | undefined>(undefined)
 

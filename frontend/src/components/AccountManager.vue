@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Coin from '@/components/ui/svg/Coin.vue'
 import { toast } from 'vue-sonner'
-import { RefreshCw, Pencil, Trash2, Frown, Dices, ShieldAlert } from 'lucide-vue-next'
+import { RefreshCw, Pencil, Trash2, Frown, Dices, ShieldAlert } from '@lucide/vue'
 import { Account } from "../../bindings/backend";
 import { Clipboard } from "@wailsio/runtime";
 import { onKeyStroke } from '@vueuse/core'
@@ -539,7 +539,7 @@ const getAccountDisplayName = (account: Account): string => {
             </div>
             <div v-if="accountsData[account.cookies]?.signInInfo?.plan" class="flex gap-1.5">
               <div v-for="(day, dayIndex) in accountsData[account.cookies].signInInfo.plan"
-                :title="`День ${dayIndex + 1}: ${day.reward.amount} монет`" :key="dayIndex"
+                :title="`День ${Number(dayIndex) + 1}: ${day.reward.amount} монет`" :key="dayIndex"
                 class="size-2.5 rounded-full transition-colors" :class="{
                   'bg-primary': day.received,
                   'bg-muted-foreground/20': !day.received

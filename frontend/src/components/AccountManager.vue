@@ -210,10 +210,12 @@ const getRewards = async (account: Account): Promise<void> => {
   loadingAccounts[account.cookies] = true
   try {
     const [rewardsJson, login, coinBalance] = await YaApiService.GetRewardsJson(account)
+    const parsedData = JSON.parse(rewardsJson)
+    const rewardsResult = parsedData?.result ?? parsedData?.results?.[0]?.data?.result
     // Create a new object reference to force reactivity
     accountsData[account.cookies] = {
       ...accountsData[account.cookies],
-      rewards: JSON.parse(rewardsJson).results?.[0]?.data?.result?.user_rewards || [],
+      rewards: rewardsResult?.userRewards ?? rewardsResult?.user_rewards ?? [],
       login,
       coinBalance
     }
@@ -232,13 +234,11 @@ const claimAndUpdateAccountInfo = async (): Promise<void> => {
     await getConfig()
     if (!config.value?.accounts) return
 
-    const promises: Promise<void>[] = []
-    for (const account of config.value.accounts) {
-      promises.push(claimDailyCoins(account))
-      promises.push(claimDailyGameRewards(account))
-      promises.push(getRewards(account))
-    }
-    await Promise.all(promises)
+    await Promise.all(config.value.accounts.map(async (account: Account) => {
+      await claimDailyCoins(account)
+      await claimDailyGameRewards(account)
+      await getRewards(account)
+    }))
   } finally {
     refreshingAll.value = false
   }
@@ -249,12 +249,14 @@ const claimDailyCoins = async (account: Account): Promise<void> => {
   try {
     const signInInfo = await YaApiService.ClaimDailyCoins(account)
     const parsedData = JSON.parse(signInInfo)
+    const dailyResult = parsedData?.result ?? parsedData?.results?.[0]?.data?.result
     // Create a new object reference
     accountsData[account.cookies] = {
       ...accountsData[account.cookies],
-      signInInfo: parsedData?.results?.[0]?.data?.result?.info
+      signInInfo: dailyResult?.info ?? dailyResult?.dailySignInInfo ?? {}
     }
-    if (parsedData.results?.[0]?.data?.result?.shortInfo?.status === "SUCCESS") {
+    const dailyStatus = dailyResult?.shortInfo?.status
+    if (dailyStatus === "SUCCESS" || (dailyResult?.rewardInfo?.reward && dailyStatus !== "REWARD_NOT_AVAILABLE")) {
       toast.success(account.name || accountsData[account.cookies]?.login || '', {
         description: "Сегодняшние монеты успешно получены",
       })
@@ -272,34 +274,28 @@ const claimDailyCoins = async (account: Account): Promise<void> => {
 const claimDailyGameRewards = async (account: Account): Promise<void> => {
   loadingAccounts[account.cookies] = true
   try {
-    const gameRewardStatus = await YaApiService.ClaimGoshanGameReward(account)
-    const parsedData = JSON.parse(gameRewardStatus)
-    if (parsedData.results?.[0]?.data?.result) {
+    const gameRewardStatus = await YaApiService.ClaimGameRewards(account)
+    const summary = JSON.parse(gameRewardStatus)
+    const rewardCount = (summary.claimedLevels ?? 0) + (summary.completedChallenges ?? 0)
+    if (rewardCount > 0) {
       toast.success(account.name || accountsData[account.cookies]?.login || '', {
-        description: "Игровая награда Goshan успешно получена",
+        description: `Получено игровых наград: ${rewardCount}`,
+      })
+    } else if (summary.challengeEvents > 0) {
+      toast.success(account.name || accountsData[account.cookies]?.login || '', {
+        description: `Обработано ежедневных заданий: ${summary.challengeEvents}`,
+      })
+    }
+    const failures = summary.games?.filter((game: any) => game.error) ?? []
+    if (failures.length > 0 && failures.length === summary.games?.length && summary.challengeEvents === 0) {
+      toast.error(account.name || accountsData[account.cookies]?.login || "Аккаунт", {
+        description: "Не удалось обработать игровые награды",
       })
     }
   } catch (err) {
     console.error(err)
     toast.error(account.name || accountsData[account.cookies]?.login || "Аккаунт", {
-      description: "Ошибка получения награды Goshan " + (err instanceof Error ? err.message : String(err)),
-    })
-  } finally {
-    loadingAccounts[account.cookies] = false
-  }
-  loadingAccounts[account.cookies] = true
-  try {
-    const gameRewardStatus = await YaApiService.ClaimMarketRushGameReward(account)
-    const parsedData = JSON.parse(gameRewardStatus)
-    if (parsedData.results?.[0]?.data?.result) {
-      toast.success(account.name || accountsData[account.cookies]?.login || '', {
-        description: "Игровая награда MarketRush успешно получена",
-      })
-    }
-  } catch (err) {
-    console.error(err)
-    toast.error(account.name || accountsData[account.cookies]?.login || "Аккаунт", {
-      description: "Ошибка получения награды MarketRush " + (err instanceof Error ? err.message : String(err)),
+      description: "Ошибка получения игровых наград " + (err instanceof Error ? err.message : String(err)),
     })
   } finally {
     loadingAccounts[account.cookies] = false
@@ -311,7 +307,8 @@ const roll = async (account: Account): Promise<void> => {
   try {
     const rollStatus = await YaApiService.Roll(account)
     const parsedData = JSON.parse(rollStatus)
-    const status = parsedData.results?.[0]?.data?.result?.type
+    const spinResult = parsedData?.result?.spinResponse ?? parsedData?.results?.[0]?.data?.result
+    const status = spinResult?.type
     if (status === "not_enough_coins") {
       toast.error(account.name || accountsData[account.cookies]?.login || '', {
         description: "Не хватает монет!",
@@ -576,7 +573,7 @@ const getAccountDisplayName = (account: Account): string => {
                   :key="rewardIndex">
                   <HoverCardTrigger>
                     <div class="relative">
-                      <img v-if="reward.reward_image" :src="reward.reward_image" alt="Награда"
+                      <img v-if="reward.rewardImage || reward.reward_image" :src="reward.rewardImage || reward.reward_image" alt="Награда"
                         class="w-15 h-15 object-contain cursor-pointer">
                     </div>
                   </HoverCardTrigger>

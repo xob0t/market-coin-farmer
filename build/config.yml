@@ -12,6 +12,7 @@ info:
   copyright: "© now, xob0t" # Copyright text
   comments: "" # Comments
   version: "1.2.0" # The application version
+  # cfBundleIconName: "appicon" # Optional macOS Assets.car icon name.
 
 # Dev mode configuration
 dev_mode:
@@ -28,23 +29,22 @@ dev_mode:
       - .DS_Store
       - .gitignore
       - .gitkeep
+      - "*_test.go"
     watched_extension:
       - "*.go"
+      - "*.js" # Watch JS/TS included through //wails:include.
+      - "*.ts"
     git_ignore: true
   executes:
-    - cmd: wails3 task common:install:frontend:deps
-      type: once
+    - cmd: wails3 build DEV=true
+      type: blocking
     - cmd: wails3 task common:dev:frontend
       type: background
-    - cmd: go mod tidy
-      type: blocking
-    - cmd: wails3 task build
-      type: blocking
     - cmd: wails3 task run
       type: primary
 
 # File Associations
-# More information at: https://v3alpha.wails.io/noit/done/yet
+# More information at: https://v3.wails.io/noit/done/yet
 fileAssociations:
 #  - ext: wails
 #    name: Wails

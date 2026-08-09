@@ -49,7 +49,9 @@ func main() {
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:     "Market Coin Farmer",
+		Title: "Market Coin Farmer",
+		// Frameless on all platforms; the custom titlebar draws the window
+		// controls (Windows, GNOME, and macOS traffic-light styles).
 		Frameless: true,
 		Width:     800,
 		Height:    900,

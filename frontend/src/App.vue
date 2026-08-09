@@ -24,10 +24,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <WindowTitlebar class="absolute top-0 left-0 z-50 w-full border-b border-border/60 bg-background/85 backdrop-blur-md">
+  <WindowTitlebar class="absolute top-0 left-0 z-50 w-full border-b border-border/60">
     <!-- pointer-events-none: inline spans have clientWidth 0, which fails the
          Wails runtime's drag hit-test; let clicks fall through to the titlebar -->
-    <span class="ml-4 text-[13px] font-medium tracking-wide pointer-events-none">
+    <span class="pointer-events-none tracking-wide">
       Market Coin Farmer
       <span v-if="version" class="ml-1 font-normal text-muted-foreground">v{{ version }}</span>
     </span>

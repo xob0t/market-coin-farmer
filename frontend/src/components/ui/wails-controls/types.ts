@@ -70,7 +70,7 @@ export interface WindowTitlebarProps {
    *
    * Possible values for `controlsOrder`:
    * - "right": The window controls will be rendered to the right of the children.
-   * - "left": The window controls will be rendered to the left of the children. This order applies only when the platform is macOS (macOS window controls are usually located on the left side of the title bar).
+   * - "left": The window controls will be rendered to the left of the children, on any platform.
    * - "platform": for OS-based positioning specified in `windowControlsProps`
    * @default "system"
    */

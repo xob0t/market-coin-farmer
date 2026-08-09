@@ -10,15 +10,18 @@ let updateTimeout: number | undefined = undefined
 
 // Initialize the window reference and set up event listeners
 export const initialize = async () => {
-  // Set up window resize event listener to track maximize state
-  const updateMaximizedState = async () => {
+  // Set up window resize event listener to track maximize state. Returns
+  // whether the query succeeded so callers (the retry loop) can react.
+  const updateMaximizedState = async (): Promise<boolean> => {
     try {
       const isMaximized = await Window.IsMaximised()
       if (isMaximized !== undefined) {
         isWindowMaximized.value = isMaximized
       }
+      return true
     } catch (error) {
       console.warn('Failed to get window maximized state:', error)
+      return false
     }
   }
 
@@ -30,30 +33,28 @@ export const initialize = async () => {
     updateTimeout = window.setTimeout(updateMaximizedState, 50)
   }
 
-  // Listen for window events using Wails3 events
-  Events.On('window:resize', debouncedUpdateMaximizedState)
-  Events.On('window:maximize', () => {
+  // Listen for window events. Wails v3 emits the common:* event names.
+  Events.On(Events.Types.Common.WindowDidResize, debouncedUpdateMaximizedState)
+  Events.On(Events.Types.Common.WindowMaximise, () => {
     isWindowMaximized.value = true
   })
-  Events.On('window:unmaximize', () => {
+  Events.On(Events.Types.Common.WindowUnMaximise, () => {
     isWindowMaximized.value = false
   })
-  Events.On('window:restore', debouncedUpdateMaximizedState)
+  Events.On(Events.Types.Common.WindowRestore, debouncedUpdateMaximizedState)
 
   // Initial state check with retry logic
   const initializeMaximizedState = async () => {
     let retries = 3
     while (retries > 0) {
-      try {
-        await updateMaximizedState()
+      if (await updateMaximizedState()) {
         break
-      } catch (error) {
-        retries--
-        if (retries === 0) {
-          console.warn('Failed to initialize window maximized state after retries:', error)
-        } else {
-          await new Promise<void>((resolve) => window.setTimeout(resolve, 100))
-        }
+      }
+      retries--
+      if (retries === 0) {
+        console.warn('Failed to initialize window maximized state after retries')
+      } else {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 100))
       }
     }
   }

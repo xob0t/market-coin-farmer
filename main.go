@@ -4,7 +4,6 @@ import (
 	"embed"
 	_ "embed"
 	"log"
-	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -51,10 +50,9 @@ func main() {
 	// 'URL' is the URL that will be loaded into the webview.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "Market Coin Farmer",
-		// Frameless everywhere except macOS, which keeps its native title bar
-		// and traffic-light controls; the custom titlebar draws the controls
-		// on Windows and Linux.
-		Frameless: runtime.GOOS != "darwin",
+		// Frameless on all platforms; the custom titlebar draws the window
+		// controls (Windows, GNOME, and macOS traffic-light styles).
+		Frameless: true,
 		Width:     800,
 		Height:    900,
 

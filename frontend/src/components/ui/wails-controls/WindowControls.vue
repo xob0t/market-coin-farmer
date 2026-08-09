@@ -3,6 +3,7 @@
 import { twMerge } from 'tailwind-merge'
 import { onMounted, ref } from 'vue'
 import Gnome from './controls/linux/Gnome.vue'
+import MacOs from './controls/MacOs.vue'
 import Windows from './controls/Windows.vue'
 import type { WindowControlsProps } from './types'
 import { getOsType } from './utils/os'
@@ -65,11 +66,14 @@ const handleDoubleClick = (event: MouseEvent) => {
     @dblclick="handleDoubleClick"
   />
 
-  <div v-else-if="platform === 'macos'"></div>
-
-  <!-- <MacOs v-else-if="platform === 'macos'" style="--wails-draggable: none"
-    :class="twMerge(customClass, props.justify && 'ml-0')" @click="handleClick" @dblclick="handleDoubleClick"
-    data-window-control /> -->
+  <MacOs
+    v-else-if="platform === 'macos'"
+    style="--wails-draggable: none"
+    :class="twMerge(customClass, props.justify && 'ml-0')"
+    data-window-control
+    @click="handleClick"
+    @dblclick="handleDoubleClick"
+  />
 
   <Gnome
     v-else-if="platform === 'gnome'"

@@ -42,11 +42,13 @@
 
 ## Сборка
 
-Требуются [Wails v3](https://v3.wails.io/getting-started/installation/) и [Task](https://taskfile.dev/).
+Требуется [Wails v3](https://v3.wails.io/getting-started/installation/).
 
 ```sh
-task dev     # запуск в режиме разработки
-task build   # сборка приложения
+wails3 dev     # запуск в режиме разработки
+wails3 build   # сборка приложения
 ```
+
+Также можно использовать [Task](https://taskfile.dev/) как обёртку: `task dev` / `task build`.
 
 Приложение кроссплатформенное (Windows, Linux, macOS).

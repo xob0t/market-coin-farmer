@@ -1,7 +1,7 @@
 # This file contains the configuration for this project.
 # When you update `info` or `fileAssociations`, run `wails3 task common:update:build-assets` to update the assets.
 # Note that this will overwrite any changes you have made to the assets.
-version: '3'
+version: "3"
 
 # This information is used to generate the build assets.
 info:
@@ -11,7 +11,7 @@ info:
   description: "Сбор монет на market.yandex.ru" # The application description
   copyright: "© now, xob0t" # Copyright text
   comments: "" # Comments
-  version: "1.2.0" # The application version
+  version: "1.3.0" # The application version
   # cfBundleIconName: "appicon" # Optional macOS Assets.car icon name.
 
 # Dev mode configuration

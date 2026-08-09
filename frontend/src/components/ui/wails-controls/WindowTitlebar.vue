@@ -67,19 +67,15 @@ const handleDoubleClick = (event: MouseEvent) => {
     @dblclick="handleDoubleClick"
   >
     <template v-if="left">
-      <!-- macOS: Controls on left -->
+      <!-- macOS: Controls on left, title left-aligned after them -->
       <WindowControls v-bind="customProps('ml-0')" data-window-control />
-      <div class="flex-1 flex items-center justify-center px-4 text-sm font-medium text-foreground/90 truncate">
+      <div class="flex-1 flex items-center px-4 text-sm font-medium text-foreground/90 truncate">
         <slot />
       </div>
-      <!-- Invisible spacer to balance for true centering -->
-      <div class="w-[72px]"></div>
     </template>
     <template v-else>
-      <!-- Windows/Linux: Controls on right -->
-      <!-- Invisible spacer to balance controls width for true centering -->
-      <div class="w-[138px]"></div>
-      <div class="flex-1 flex items-center justify-center px-4 text-sm font-medium text-foreground/90 truncate">
+      <!-- Windows/Linux: title left-aligned, controls on right -->
+      <div class="flex-1 flex items-center px-4 text-sm font-medium text-foreground/90 truncate">
         <slot />
       </div>
       <WindowControls v-bind="customProps('ml-auto')" data-window-control />

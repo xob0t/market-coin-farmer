@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted, reactive } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ConfigService, YaApiService, BrowserAuthService } from '../../bindings/backend'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -13,43 +13,21 @@ import { RefreshCw, Pencil, Trash2, Frown, Dices, ShieldAlert, LogIn, X, Plus } 
 import { Account } from '../../bindings/backend'
 import { Clipboard } from '@wailsio/runtime'
 import { onKeyStroke } from '@vueuse/core'
+import { useAccountOperationState } from '@/composables/useAccountOperationState'
+import { useRewardScheduler } from '@/composables/useRewardScheduler'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 const config = ref<any>(null)
 const cookies = ref('')
-const accountsData = reactive<
-  Record<
-    string,
-    {
-      rewards: any[]
-      signInInfo: any
-      login?: string
-      coinBalance?: string
-      blocked?: boolean
-    }
-  >
->({})
 const name = ref('')
 const proxy = ref('')
 const editingAccountCookies = ref<string | null>(null)
 const editName = ref('')
 const editProxy = ref('')
 const editCookies = ref('')
-const now = ref(Math.floor(Date.now() / 1000))
-let countdownInterval: number | null = null
-
-const loadingAccounts = reactive<Record<string, boolean>>({})
-const refreshingAll = ref(false)
 const hideJunk = ref(false)
-const spendingAllCoins = ref(false)
-
-// Per-account cancellation for refresh/roll. inFlightCalls holds the live
-// CancellablePromises so cancel() aborts the backend HTTP request (the service
-// methods take a wails-injected context.Context); cancelledAccounts stops the
-// frontend from chaining further steps and suppresses the resulting errors.
-const inFlightCalls: Record<string, Set<{ cancel: () => void }>> = {}
-const cancelledAccounts = reactive<Record<string, boolean>>({})
+const { accountsData, loadingAccounts, cancelledAccounts, refreshingAll, spendingAllCoins, trackCall, isCancelled, beginRefresh, cancelAccountRefresh } = useAccountOperationState()
 
 const importDialogOpen = ref(false)
 const browserLoginAvailable = ref(false)
@@ -66,61 +44,6 @@ onMounted(async () => {
       browserLoginAvailable.value = false
     })
   await claimAndUpdateAccountInfo()
-  startCountdownTimer()
-})
-
-onUnmounted(() => {
-  if (countdownInterval) {
-    clearInterval(countdownInterval)
-  }
-})
-
-const startCountdownTimer = () => {
-  if (countdownInterval) {
-    clearInterval(countdownInterval)
-  }
-  countdownInterval = window.setInterval(() => {
-    now.value = Math.floor(Date.now() / 1000)
-  }, 1000)
-}
-
-const formatTime = (seconds: number): string => {
-  if (seconds <= 0) return 'Доступно сейчас'
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-}
-
-const nextCoinRewardTime = computed(() => {
-  const result: Record<string, string> = {}
-  if (!config.value?.accounts) return result
-
-  for (const account of config.value.accounts) {
-    const accountData = accountsData[account.cookies]
-    if (accountData?.signInInfo?.rewardAvailable) {
-      claimDailyCoins(account)
-      claimDailyGameRewards(account)
-      getRewards(account)
-    }
-
-    if (!accountData?.signInInfo?.nextRewardTs) {
-      result[account.cookies] = 'Не доступно'
-      continue
-    }
-
-    const timestamp = accountData.signInInfo.nextRewardTs
-    const diff = timestamp - now.value
-
-    result[account.cookies] = formatTime(diff)
-
-    if (diff <= 0) {
-      claimDailyCoins(account)
-      claimDailyGameRewards(account)
-      getRewards(account)
-    }
-  }
-  return result
 })
 
 // A 403 VPN/proxy block is persistent account state, not a transient failure:
@@ -137,34 +60,6 @@ const reportAccountError = (account: Account, description: string, err: unknown)
   toast.error(account.name || accountsData[account.cookies]?.login || 'Аккаунт', {
     description: `${description} ${message}`,
   })
-}
-
-// trackCall registers a cancellable backend call for an account so it can be
-// aborted, and unregisters it when it settles.
-const trackCall = async <T,>(cookies: string, call: Promise<T> & { cancel: () => void }): Promise<T> => {
-  const set = (inFlightCalls[cookies] ??= new Set())
-  set.add(call)
-  try {
-    return await call
-  } finally {
-    set.delete(call)
-  }
-}
-
-const isCancelled = (cookies: string): boolean => cancelledAccounts[cookies] === true
-
-const beginRefresh = (cookies: string): void => {
-  cancelledAccounts[cookies] = false
-}
-
-const cancelAccountRefresh = (account: Account): void => {
-  cancelledAccounts[account.cookies] = true
-  const set = inFlightCalls[account.cookies]
-  if (set) {
-    for (const call of set) call.cancel()
-    set.clear()
-  }
-  loadingAccounts[account.cookies] = false
 }
 
 const decodeBase64 = (str: string): string => {
@@ -341,6 +236,16 @@ const getRewards = async (account: Account): Promise<void> => {
     loadingAccounts[account.cookies] = false
   }
 }
+
+const refreshAccount = async (account: Account): Promise<void> => {
+  beginRefresh(account.cookies)
+  await claimDailyCoins(account)
+  if (isCancelled(account.cookies)) return
+  await claimDailyGameRewards(account)
+  if (isCancelled(account.cookies)) return
+  await getRewards(account)
+}
+
 const claimAndUpdateAccountInfo = async (): Promise<void> => {
   refreshingAll.value = true
   try {
@@ -349,18 +254,16 @@ const claimAndUpdateAccountInfo = async (): Promise<void> => {
 
     await Promise.all(
       config.value.accounts.map(async (account: Account) => {
-        beginRefresh(account.cookies)
-        await claimDailyCoins(account)
-        if (isCancelled(account.cookies)) return
-        await claimDailyGameRewards(account)
-        if (isCancelled(account.cookies)) return
-        await getRewards(account)
+        await refreshAccount(account)
       }),
     )
   } finally {
     refreshingAll.value = false
   }
 }
+
+const scheduledAccounts = computed<Account[]>(() => config.value?.accounts ?? [])
+const { nextCoinRewardTime } = useRewardScheduler(scheduledAccounts, accountsData, refreshAccount, (account) => !refreshingAll.value && !spendingAllCoins.value && !loadingAccounts[account.cookies])
 
 const claimDailyCoins = async (account: Account): Promise<void> => {
   loadingAccounts[account.cookies] = true
@@ -418,7 +321,7 @@ const claimDailyGameRewards = async (account: Account): Promise<void> => {
   }
 }
 
-const roll = async (account: Account): Promise<void> => {
+const roll = async (account: Account): Promise<boolean> => {
   loadingAccounts[account.cookies] = true
   try {
     const rollStatus = await trackCall(account.cookies, YaApiService.Roll(account))
@@ -429,22 +332,24 @@ const roll = async (account: Account): Promise<void> => {
       toast.error(account.name || accountsData[account.cookies]?.login || '', {
         description: 'Не хватает монет!',
       })
-      return
+      return false
     }
     if (status === 'success') {
       toast.success(account.name || accountsData[account.cookies]?.login || '', {
         description: 'Награда из колеса получена!',
       })
       await getRewards(account)
-      return
+      return true
     }
     toast.error(account.name || accountsData[account.cookies]?.login || 'Аккаунт', {
       description: 'Ошибка получения награды. Неизвестный статус ' + status,
     })
+    return false
   } catch (err) {
-    if (isCancelled(account.cookies)) return
+    if (isCancelled(account.cookies)) return false
     console.error(err)
     reportAccountError(account, 'Ошибка получения награды', err)
+    return false
   } finally {
     loadingAccounts[account.cookies] = false
   }
@@ -461,16 +366,27 @@ const spendAllCoins = async (): Promise<void> => {
 
   spendingAllCoins.value = true
   try {
-    await Promise.all(
-      config.value.accounts.map(async (account) => {
+    const results = await Promise.all(
+      config.value.accounts.map(async (account: Account): Promise<boolean> => {
         beginRefresh(account.cookies)
-        while (canRoll(account.cookies) && !isCancelled(account.cookies)) {
-          await roll(account)
+
+        const initialBalance = Number.parseInt(accountsData[account.cookies]?.coinBalance ?? '', 10)
+        if (!Number.isFinite(initialBalance)) return false
+
+        // Each roll costs 10 coins. Besides stopping on a failed roll, cap the
+        // attempts from the starting balance so stale UI state can never turn
+        // this into an unbounded loop.
+        const maxRolls = Math.floor(initialBalance / 10)
+        for (let attempt = 0; attempt < maxRolls; attempt++) {
+          if (!canRoll(account.cookies) || isCancelled(account.cookies)) break
+          if (!(await roll(account))) return false
         }
+
+        return !isCancelled(account.cookies) && !canRoll(account.cookies)
       }),
     )
     const anyCancelled = config.value.accounts.some((account: Account) => isCancelled(account.cookies))
-    if (!anyCancelled) {
+    if (!anyCancelled && results.every(Boolean)) {
       toast.success('Все монеты потрачены на всех аккаунтах')
     }
   } catch (err) {

@@ -90,7 +90,7 @@ var (
 	skRegex           = regexp.MustCompile(`"sk":\s*"(.*?)"`)
 	loginRegex        = regexp.MustCompile(`"login":\s*"(.*?)"`)
 	coinBalanceRegex  = regexp.MustCompile(`"coinsAmount":\s*(\d+)`)
-	appVersionRegex   = regexp.MustCompile(`"-version":"([^"]+-desktop\.[^"]+)"`)
+	appVersionRegex   = regexp.MustCompile(`"-version":"(\d{4}\.\d{2}\.\d{2}[^"]*)"`)
 	frontGlueRegex    = regexp.MustCompile(`"marketFrontGlue":"([^"]+)"`)
 	languageRegex     = regexp.MustCompile(`"lang":"([^"]+)"`)
 	scriptSourceRegex = regexp.MustCompile(`(?i)<script[^>]+src=["']([^"']+)["']`)
